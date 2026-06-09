@@ -1,9 +1,6 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-    <meta charset="UTF-8"><!DOCTYPE html>
-<html lang="th">
-<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>หมากฮอสไทย 3D - อัศวิน Enhanced</title>
@@ -605,11 +602,12 @@ function createKingAura(mesh,colorHex,isRed){
     const auraLight=new THREE.PointLight(colorHex,1.2,1.8);
     auraLight.position.y=0.5;group.add(auraLight);auraObjs.auraLight=auraLight;
 
-    // ─ วางไว้ใต้ mesh (offset ตามตำแหน่ง) ─
+    // ─ วางไว้ที่ mesh position ─
     group.position.copy(mesh.position);
-    group.position.y+=0.05;
+    group.position.y+=0.12; // king on horse สูงกว่า
     scene.add(group);
     auraObjs.group=group;
+    auraObjs.yOffset=0.12;
     kingAuraMeshes.set(mesh,auraObjs);
 }
 
@@ -626,10 +624,10 @@ function updateKingAuras(){
     const t=Date.now()*0.001;
     kingAuraMeshes.forEach((aura,mesh)=>{
         if(!mesh.parent){removeKingAura(mesh);return;}
-        // ติดตามตำแหน่ง mesh
+        // ติดตามตำแหน่ง mesh (king-on-horse สูงกว่า)
         aura.group.position.x=mesh.position.x;
         aura.group.position.z=mesh.position.z;
-        aura.group.position.y=mesh.position.y+0.05;
+        aura.group.position.y=mesh.position.y+(aura.yOffset||0.12);
 
         // rotate rings
         aura.rings.forEach(ring=>{ring.rotation.y+=ring.userData.rotSpeed*0.016;});
@@ -656,113 +654,315 @@ function updateKingAuras(){
 }
 
 // ==========================================
-// [Knight Figure 3D — ENHANCED]
+// [Knight Figure 3D — ยืนเดี่ยว (หมากธรรมดา)]
+// อัศวินหันหน้าไปทาง +Z (ทิศทางศัตรู) — ไม่ต้อง rotate.y เพิ่ม
 // ==========================================
-function createKnightFigure(colorHex,emissiveHex,isKingPiece){
+function createKnightFigure(colorHex,emissiveHex){
     const group=new THREE.Group();
     const mat=new THREE.MeshStandardMaterial({color:colorHex,roughness:0.18,metalness:0.82,emissive:emissiveHex,emissiveIntensity:0.25});
     const matDark=new THREE.MeshStandardMaterial({color:colorHex,roughness:0.28,metalness:0.65,emissive:emissiveHex,emissiveIntensity:0.10});
-    const matVisor=new THREE.MeshStandardMaterial({color:0x111111,roughness:0.05,metalness:0.95,emissive:colorHex,emissiveIntensity:0.55});
+    const matVisor=new THREE.MeshStandardMaterial({color:0x111111,roughness:0.05,metalness:0.95,emissive:colorHex,emissiveIntensity:0.60});
 
-    // ─── ขา ───
+    // ─── ขา (เท้าวางที่ y=0 local) ───
     [-0.09,0.09].forEach(xOff=>{
         const thigh=new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.07,0.22,10),mat);thigh.position.set(xOff,0.35,0);group.add(thigh);
-        const shin=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.065,0.20,10),mat);shin.position.set(xOff*1.05,0.14,0.015);shin.rotation.x=0.08;group.add(shin);
+        const shin=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.065,0.20,10),mat);shin.position.set(xOff*1.05,0.14,0.012);shin.rotation.x=0.08;group.add(shin);
         const boot=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.06,0.14),mat);boot.position.set(xOff,0.03,0.02);group.add(boot);
     });
+    // ─── เอว/สะโพก ───
     const hip=new THREE.Mesh(new THREE.CylinderGeometry(0.155,0.145,0.08,14),mat);hip.position.set(0,0.475,0);group.add(hip);
+    // ─── ลำตัว ───
     const torso=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.155,0.26,14),mat);torso.position.set(0,0.62,0);group.add(torso);
+    // แผ่นอก — หันหน้าไปทาง +Z
     const chestPlate=new THREE.Mesh(new THREE.BoxGeometry(0.20,0.18,0.06),mat);chestPlate.position.set(0,0.64,0.10);group.add(chestPlate);
 
-    // ─── ไหล่/แขน ───
+    // ─── ไหล่ ───
     [-0.19,0.19].forEach(xOff=>{
         const pauldron=new THREE.Mesh(new THREE.SphereGeometry(0.09,12,10),mat);pauldron.scale.set(1,0.75,0.85);pauldron.position.set(xOff,0.72,0);group.add(pauldron);
         const upperArm=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.065,0.18,10),mat);upperArm.position.set(xOff*1.08,0.59,0);upperArm.rotation.z=xOff>0?0.25:-0.25;group.add(upperArm);
     });
 
-    // ─── แขนซ้าย — ถือโล่ ───
-    const foreArmL=new THREE.Mesh(new THREE.CylinderGeometry(0.048,0.055,0.16,10),mat);foreArmL.position.set(-0.225,0.48,0.04);foreArmL.rotation.z=0.5;foreArmL.rotation.x=-0.3;group.add(foreArmL);
+    // ─── แขนซ้าย — ถือโล่ (ชูไปทาง +Z หน้าตัว) ───
+    const foreArmL=new THREE.Mesh(new THREE.CylinderGeometry(0.048,0.055,0.16,10),mat);foreArmL.position.set(-0.225,0.50,0.06);foreArmL.rotation.z=0.45;foreArmL.rotation.x=-0.35;group.add(foreArmL);
     const shieldGrp=new THREE.Group();
     const shieldBody=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.24,0.035),mat);shieldGrp.add(shieldBody);
     const shieldRim=new THREE.Mesh(new THREE.BoxGeometry(0.20,0.26,0.02),matDark);shieldRim.position.z=-0.025;shieldGrp.add(shieldRim);
-    // ─ สัญลักษณ์บนโล่ (ดาวหรือมงกุฎ) ─
     const shieldStar=new THREE.Mesh(new THREE.SphereGeometry(0.042,8,6),matVisor);shieldStar.position.z=0.032;shieldGrp.add(shieldStar);
-    if(isKingPiece){
-        // โล่ King: ลูกแก้วโตขึ้น + เส้นรัศมี
-        const shieldGem=new THREE.Mesh(new THREE.OctahedronGeometry(0.055,0),new THREE.MeshStandardMaterial({color:0xffffff,emissive:colorHex,emissiveIntensity:4,transparent:true,opacity:0.85}));
-        shieldGem.position.z=0.035;shieldGrp.add(shieldGem);
-    }
-    shieldGrp.position.set(-0.30,0.56,0.12);shieldGrp.rotation.y=0.35;shieldGrp.rotation.z=0.10;group.add(shieldGrp);
+    // โล่หันหน้าออกไปทาง +Z (ชูป้องกัน)
+    shieldGrp.position.set(-0.28,0.57,0.22);shieldGrp.rotation.y=-0.25;shieldGrp.rotation.z=0.08;group.add(shieldGrp);
 
-    // ─── แขนขวา — ดาบ/ขวาน (เก็บ ref เพื่อ animate) ───
-    const foreArmR=new THREE.Mesh(new THREE.CylinderGeometry(0.048,0.055,0.16,10),mat);foreArmR.position.set(0.225,0.52,0.04);foreArmR.rotation.z=-0.45;foreArmR.rotation.x=-0.15;group.add(foreArmR);
+    // ─── แขนขวา — ถือดาบชี้ออกไปทาง +Z ───
+    const foreArmR=new THREE.Mesh(new THREE.CylinderGeometry(0.048,0.055,0.16,10),mat);foreArmR.position.set(0.225,0.52,0.06);foreArmR.rotation.z=-0.42;foreArmR.rotation.x=-0.18;group.add(foreArmR);
     group.userData.armR=foreArmR;
 
     const swordGrp=new THREE.Group();
-    if(!isKingPiece){
-        const blade=new THREE.Mesh(new THREE.BoxGeometry(0.025,0.44,0.008),new THREE.MeshStandardMaterial({color:0xddeeff,roughness:0.05,metalness:0.98,emissive:0x445566}));blade.position.y=0.22;swordGrp.add(blade);
-        const guard=new THREE.Mesh(new THREE.BoxGeometry(0.10,0.022,0.022),mat);guard.position.y=0.01;swordGrp.add(guard);
-        const grip=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.10,8),matDark);grip.position.y=-0.06;swordGrp.add(grip);
-        // ─ light streak บนดาบ (เส้นแสงแผ่จากดาบ) ─
-        const bladeGlow=new THREE.Mesh(new THREE.BoxGeometry(0.008,0.42,0.002),new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:1.5,transparent:true,opacity:0.5}));
-        bladeGlow.position.y=0.22;swordGrp.add(bladeGlow);
-        group.userData.bladeGlow=bladeGlow;
-    }else{
-        // ─ ขวาน King: double-head axe ─
-        const haft=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,0.48,8),matDark);haft.position.y=0.24;swordGrp.add(haft);
-        [-0.06,0.06].forEach(yOff=>{
-            const axeHead=new THREE.Mesh(new THREE.CylinderGeometry(0.002,0.10,0.07,6),mat);axeHead.rotation.z=Math.PI/2;axeHead.rotation.y=Math.PI/6;axeHead.position.set(0.02,0.42+yOff,0);swordGrp.add(axeHead);
-        });
-        // ─ เส้นแสงบนขวาน ─
-        const axeGlow=new THREE.Mesh(new THREE.SphereGeometry(0.04,8,6),new THREE.MeshStandardMaterial({color:colorHex,emissive:colorHex,emissiveIntensity:3,transparent:true,opacity:0.7}));
-        axeGlow.position.y=0.44;swordGrp.add(axeGlow);
-        group.userData.axeGlow=axeGlow;
-    }
-    swordGrp.position.set(0.34,0.64,0.08);swordGrp.rotation.z=-0.20;swordGrp.rotation.x=0.10;
+    // ดาบ — ชี้ออกไปทาง +Z (หน้าตัว)
+    const blade=new THREE.Mesh(new THREE.BoxGeometry(0.025,0.46,0.008),new THREE.MeshStandardMaterial({color:0xddeeff,roughness:0.04,metalness:0.98,emissive:0x445566}));
+    blade.position.y=0.23;swordGrp.add(blade);
+    const guard=new THREE.Mesh(new THREE.BoxGeometry(0.11,0.022,0.022),mat);guard.position.y=0.01;swordGrp.add(guard);
+    const grip=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.11,8),matDark);grip.position.y=-0.065;swordGrp.add(grip);
+    const bladeGlow=new THREE.Mesh(new THREE.BoxGeometry(0.008,0.44,0.002),new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:1.5,transparent:true,opacity:0.5}));
+    bladeGlow.position.y=0.23;swordGrp.add(bladeGlow);
+    group.userData.bladeGlow=bladeGlow;
+    // วางดาบชี้ออก +Z: rotation.x =-PI/2 ทำให้ blade ชี้ออกหน้า
+    swordGrp.position.set(0.30,0.62,0.14);
+    swordGrp.rotation.x=-Math.PI/2+0.3; // ชี้ออกไปข้างหน้าเล็กน้อย
+    swordGrp.rotation.z=-0.15;
     group.add(swordGrp);group.userData.swordGrp=swordGrp;
 
-    // ─── คอ + หัวเกราะ ───
+    // ─── คอ ───
     const neck=new THREE.Mesh(new THREE.CylinderGeometry(0.07,0.09,0.08,12),mat);neck.position.set(0,0.78,0);group.add(neck);
+    // ─── หัวเกราะ ───
     const helmetBase=new THREE.Mesh(new THREE.SphereGeometry(0.115,16,14),mat);helmetBase.scale.set(1,1.08,0.96);helmetBase.position.set(0,0.90,0);group.add(helmetBase);
     const helmBrim=new THREE.Mesh(new THREE.CylinderGeometry(0.128,0.122,0.025,16),mat);helmBrim.position.set(0,0.825,0);group.add(helmBrim);
+    // visor หันหน้าไปทาง +Z
     const visor=new THREE.Mesh(new THREE.BoxGeometry(0.13,0.065,0.07),matVisor);visor.position.set(0,0.888,0.085);visor.rotation.x=-0.12;group.add(visor);
     [-0.032,0.032].forEach(xOff=>{
-        const eyeSlit=new THREE.Mesh(new THREE.BoxGeometry(0.028,0.014,0.08),new THREE.MeshStandardMaterial({color:colorHex,roughness:0,metalness:0,emissive:colorHex,emissiveIntensity:2.5}));
+        const eyeSlit=new THREE.Mesh(new THREE.BoxGeometry(0.028,0.014,0.08),new THREE.MeshStandardMaterial({color:colorHex,roughness:0,metalness:0,emissive:colorHex,emissiveIntensity:2.8}));
         eyeSlit.position.set(xOff,0.895,0.09);group.add(eyeSlit);
     });
-
-    if(isKingPiece){
-        // ─ King: มงกุฎทองบนหมวก + ขนนก ─
-        const crownMat=new THREE.MeshStandardMaterial({color:0xffd700,roughness:0.06,metalness:0.96,emissive:0x2b1a00});
-        const crownRing=new THREE.Mesh(new THREE.CylinderGeometry(0.095,0.105,0.04,16),crownMat);crownRing.position.set(0,0.98,0);group.add(crownRing);
-        for(let p=0;p<5;p++){
-            const angle=(p/5)*Math.PI*2;
-            const cx=Math.cos(angle)*0.09,cz=Math.sin(angle)*0.09;
-            const spike=new THREE.Mesh(new THREE.ConeGeometry(0.015,0.10,6),crownMat);spike.position.set(cx,1.04,cz);
-            const bead=new THREE.Mesh(new THREE.SphereGeometry(0.018,8,8),crownMat);bead.position.set(cx*1.1,1.12,cz*1.1);
-            group.add(spike);group.add(bead);
-        }
-        const plumeGeo=new THREE.CylinderGeometry(0.012,0.025,0.24,8);
-        const plume=new THREE.Mesh(plumeGeo,new THREE.MeshStandardMaterial({color:colorHex,roughness:0.6,metalness:0.1,emissive:colorHex,emissiveIntensity:0.5}));
-        plume.position.set(0,1.08,-0.02);group.add(plume);
-        const ridge=new THREE.Mesh(new THREE.BoxGeometry(0.022,0.022,0.22),mat);ridge.position.set(0,1.04,-0.02);group.add(ridge);
-        // ─ glowing gem บนมงกุฎ ─
-        const gem=new THREE.Mesh(new THREE.OctahedronGeometry(0.03,0),new THREE.MeshStandardMaterial({color:0xffffff,emissive:colorHex,emissiveIntensity:5,transparent:true,opacity:0.9}));
-        gem.position.set(0,1.10,0);group.add(gem);group.userData.crownGem=gem;
-    }else{
-        // ─ Normal: เขาบนหมวก ─
-        const hornGeo=new THREE.ConeGeometry(0.018,0.10,8);
-        [-0.065,0.065].forEach(xOff=>{
-            const horn=new THREE.Mesh(hornGeo,mat);horn.position.set(xOff,1.015,-0.02);horn.rotation.z=xOff>0?0.22:-0.22;group.add(horn);
-        });
-    }
+    // เขาบนหมวก
+    const hornGeo=new THREE.ConeGeometry(0.018,0.10,8);
+    [-0.065,0.065].forEach(xOff=>{
+        const horn=new THREE.Mesh(hornGeo,mat);horn.position.set(xOff,1.015,-0.02);horn.rotation.z=xOff>0?0.22:-0.22;group.add(horn);
+    });
 
     // ─── ฐาน ───
     const base=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.28,0.06,20),matDark);base.position.set(0,-0.03,0);group.add(base);
 
     group.scale.setScalar(0.78);
-    group.position.y=0.075+0.03*0.78;
+    // ไม่เซ็ต position.y ที่นี่ — drawPieces จัดการเอง
     return group;
+}
+
+// ==========================================
+// [ม้า 3D procedural — ใช้สำหรับ King]
+// สร้างม้าทั้งตัว: ลำตัว + ขา4ข้าง + คอ + หัว + หาง
+// ม้าหันหน้าไปทาง +Z (เดินหน้าหาศัตรู)
+// ==========================================
+function createHorse3D(colorHex,emissiveHex){
+    const group=new THREE.Group();
+    const mat=new THREE.MeshStandardMaterial({color:colorHex,roughness:0.32,metalness:0.55,emissive:emissiveHex,emissiveIntensity:0.18});
+    const matDark=new THREE.MeshStandardMaterial({color:colorHex,roughness:0.45,metalness:0.35,emissive:emissiveHex,emissiveIntensity:0.06});
+    const matMane=new THREE.MeshStandardMaterial({color:colorHex,roughness:0.55,metalness:0.20,emissive:emissiveHex,emissiveIntensity:0.12,side:THREE.DoubleSide});
+
+    // ─── ลำตัว (barrel) ───
+    const bodyGeo=new THREE.CylinderGeometry(0.19,0.17,0.54,16);
+    const body=new THREE.Mesh(bodyGeo,mat);
+    body.rotation.x=Math.PI/2; // นอนราบ ชี้ +Z
+    body.position.set(0,0.26,0);
+    group.add(body);
+
+    // ─── ก้น (rump) ─── ขยายส่วนท้าย
+    const rump=new THREE.Mesh(new THREE.SphereGeometry(0.19,12,10),mat);
+    rump.scale.set(0.85,0.88,0.72);rump.position.set(0,0.26,-0.26);group.add(rump);
+
+    // ─── หน้าอก (chest) ─── ขยายส่วนหน้า
+    const chest=new THREE.Mesh(new THREE.SphereGeometry(0.17,12,10),mat);
+    chest.scale.set(0.88,0.92,0.75);chest.position.set(0,0.27,0.26);group.add(chest);
+
+    // ─── ขา 4 ข้าง ─── (คู่หน้า/หลัง)
+    // ขาหน้า: ยกขึ้นเล็กน้อยในท่าเดิน
+    [
+        [-0.11,0,0.20, 0.20],   // FL (หน้าซ้าย) — ยกขึ้น
+        [ 0.11,0,0.20,-0.12],   // FR (หน้าขวา)
+        [-0.11,0,-0.20, 0.10],  // BL (หลังซ้าย)
+        [ 0.11,0,-0.20,-0.08]   // BR (หลังขวา) — ยกขึ้นเล็กน้อย
+    ].forEach(([lx,ly,lz,rotX])=>{
+        // ต้นขา
+        const upper=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.050,0.18,8),mat);
+        upper.position.set(lx,0.13,lz);upper.rotation.x=rotX;group.add(upper);
+        // แข้ง
+        const lower=new THREE.Mesh(new THREE.CylinderGeometry(0.040,0.038,0.17,8),matDark);
+        lower.position.set(lx,0.14+Math.sin(rotX)*-0.07,lz+Math.cos(rotX)*-0.05);
+        lower.rotation.x=rotX*0.6;group.add(lower);
+        // กีบ
+        const hoof=new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.048,0.04,10),matDark);
+        hoof.position.set(lx,0.028+Math.abs(rotX)*0.05,lz+Math.cos(rotX)*-0.10);group.add(hoof);
+    });
+
+    // ─── คอ (neck) — เอียงขึ้นและไปข้างหน้า ───
+    const neckGrp=new THREE.Group();
+    const neckLow=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.14,0.25,12),mat);
+    neckLow.position.set(0,0.125,0);group.add(neckLow);
+    neckGrp.add(neckLow);
+    neckGrp.position.set(0,0.30,0.24);
+    neckGrp.rotation.x=-0.60; // คอก้มไปข้างหน้า
+    group.add(neckGrp);
+
+    // คอส่วนบน (ต่อจาก neckGrp)
+    const neckUp=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.11,0.20,12),mat);
+    neckUp.position.set(0,0.45,0.30);neckUp.rotation.x=-0.55;group.add(neckUp);
+
+    // ─── หัวม้า ───
+    const headGrp=new THREE.Group();
+    // กะโหลก
+    const skull=new THREE.Mesh(new THREE.SphereGeometry(0.115,14,12),mat);
+    skull.scale.set(0.78,0.85,1.10);headGrp.add(skull);
+    // ปาก/จมูก
+    const muzzle=new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.075,0.16,10),mat);
+    muzzle.rotation.x=Math.PI/2;muzzle.position.set(0,-0.02,0.14);headGrp.add(muzzle);
+    // รูจมูก x2
+    [-0.04,0.04].forEach(xo=>{
+        const nos=new THREE.Mesh(new THREE.SphereGeometry(0.025,6,5),matDark);nos.position.set(xo,-0.04,0.20);headGrp.add(nos);
+    });
+    // ตา x2
+    const eyeM=new THREE.MeshStandardMaterial({color:0x111111,roughness:0.05,metalness:0.8});
+    [-0.09,0.09].forEach(xo=>{
+        const eye=new THREE.Mesh(new THREE.SphereGeometry(0.032,8,7),eyeM);eye.position.set(xo,0.04,0.07);headGrp.add(eye);
+        // ประกายตา
+        const glint=new THREE.Mesh(new THREE.SphereGeometry(0.010,6,5),new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:2}));
+        glint.position.set(xo+0.012,0.052,0.095);headGrp.add(glint);
+    });
+    // หู x2
+    const earG=new THREE.ConeGeometry(0.035,0.08,7);
+    [-0.07,0.07].forEach(xo=>{
+        const ear=new THREE.Mesh(earG,mat);ear.position.set(xo,0.12,-0.04);ear.rotation.z=xo>0?0.22:-0.22;ear.rotation.x=-0.15;headGrp.add(ear);
+    });
+    headGrp.position.set(0,0.61,0.46);headGrp.rotation.x=-0.20;
+    group.add(headGrp);
+
+    // ─── แผงคอ (mane) — ยาวตามคอ ───
+    for(let i=0;i<6;i++){
+        const mane=new THREE.Mesh(new THREE.PlaneGeometry(0.10+i*0.01,0.18),matMane);
+        mane.position.set(0,0.36+i*0.02,0.24-i*0.015);
+        mane.rotation.x=-0.6-i*0.05;mane.rotation.y=Math.PI/2;
+        group.add(mane);
+    }
+
+    // ─── หาง (tail) ─── พู่ห้อยด้านหลัง
+    for(let t=0;t<5;t++){
+        const tailSeg=new THREE.Mesh(new THREE.CylinderGeometry(0.015-t*0.002,0.018-t*0.002,0.20,6),matMane);
+        tailSeg.position.set((t%2===0?0.02:-0.02),0.22-t*0.05,-0.32-t*0.06);
+        tailSeg.rotation.x=0.4+t*0.12;group.add(tailSeg);
+    }
+
+    // ─── อาน (saddle) ───
+    const saddleGeo=new THREE.BoxGeometry(0.22,0.06,0.20);
+    const saddleMat=new THREE.MeshStandardMaterial({color:0x5c3010,roughness:0.6,metalness:0.1});
+    const saddle=new THREE.Mesh(saddleGeo,saddleMat);saddle.position.set(0,0.38,-0.02);group.add(saddle);
+    // โกลน (stirrup) x2
+    [-0.14,0.14].forEach(xo=>{
+        const stirrup=new THREE.Mesh(new THREE.TorusGeometry(0.032,0.008,6,12),new THREE.MeshStandardMaterial({color:colorHex,metalness:0.9,roughness:0.1}));
+        stirrup.position.set(xo,0.18,0.02);stirrup.rotation.x=Math.PI/2;group.add(stirrup);
+    });
+
+    // ─── บังเหียน (bridle) ───
+    const bridleMat=new THREE.MeshStandardMaterial({color:0x5c3010,roughness:0.65,metalness:0.08});
+    const bridleHead=new THREE.Mesh(new THREE.TorusGeometry(0.095,0.010,6,16,Math.PI*1.4),bridleMat);
+    bridleHead.position.set(0,0.60,0.44);bridleHead.rotation.z=Math.PI/2;group.add(bridleHead);
+
+    group.scale.setScalar(0.85); // scale ม้าให้พอดี
+    return group;
+}
+
+// ==========================================
+// [King On Horse — พระราชาขี่ม้า]
+// ม้า + อัศวินนั่งบนอาน (ท่านั่งขี่)
+// ==========================================
+function createKingOnHorse(colorHex,emissiveHex){
+    const outerGroup=new THREE.Group();
+
+    // ─── ม้า ───
+    const horse=createHorse3D(colorHex,emissiveHex);
+    outerGroup.add(horse);
+
+    // ─── วัสดุ King ───
+    const mat=new THREE.MeshStandardMaterial({color:colorHex,roughness:0.15,metalness:0.85,emissive:emissiveHex,emissiveIntensity:0.30});
+    const matDark=new THREE.MeshStandardMaterial({color:colorHex,roughness:0.28,metalness:0.62,emissive:emissiveHex,emissiveIntensity:0.10});
+    const matVisor=new THREE.MeshStandardMaterial({color:0x111111,roughness:0.04,metalness:0.96,emissive:colorHex,emissiveIntensity:0.65});
+    const crownMat=new THREE.MeshStandardMaterial({color:0xffd700,roughness:0.05,metalness:0.97,emissive:0x3a2200});
+
+    // ─── ขาขี่ม้า (กางออกข้าง ม้า) ───
+    [-0.14,0.14].forEach(xOff=>{
+        const thigh=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.060,0.20,10),mat);
+        thigh.position.set(xOff,0.355,-0.02);thigh.rotation.z=xOff>0?1.1:-1.1;thigh.rotation.x=0.25;
+        outerGroup.add(thigh);
+        const shin=new THREE.Mesh(new THREE.CylinderGeometry(0.046,0.055,0.18,10),mat);
+        shin.position.set(xOff>0?0.22:-0.22,0.21,0.04);shin.rotation.z=xOff>0?1.6:-1.6;shin.rotation.x=0.45;
+        outerGroup.add(shin);
+        const boot=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.055,0.12),mat);
+        boot.position.set(xOff>0?0.25:-0.25,0.17,0.06);outerGroup.add(boot);
+    });
+
+    // ─── ลำตัว King (นั่งตัวตรงบนอาน) ───
+    const torso=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.135,0.24,14),mat);
+    torso.position.set(0,0.55,-0.02);outerGroup.add(torso);
+    const chestPlate=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.16,0.055),mat);
+    chestPlate.position.set(0,0.565,0.095);outerGroup.add(chestPlate);
+
+    // ─── ไหล่ ───
+    [-0.17,0.17].forEach(xOff=>{
+        const pauldron=new THREE.Mesh(new THREE.SphereGeometry(0.080,12,10),mat);
+        pauldron.scale.set(1,0.78,0.88);pauldron.position.set(xOff,0.645,0);outerGroup.add(pauldron);
+    });
+
+    // ─── แขนซ้าย — ถือบังเหียน ───
+    const foreArmL=new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.048,0.17,10),mat);
+    foreArmL.position.set(-0.18,0.53,0.09);foreArmL.rotation.z=0.55;foreArmL.rotation.x=-0.50;outerGroup.add(foreArmL);
+    // มือถือบังเหียน
+    const reinsL=new THREE.Mesh(new THREE.CylinderGeometry(0.010,0.010,0.22,6),matDark);
+    reinsL.position.set(-0.12,0.43,0.22);reinsL.rotation.x=-0.80;reinsL.rotation.z=0.35;outerGroup.add(reinsL);
+
+    // ─── แขนขวา — ถือดาบยกสูง ───
+    const foreArmR=new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.048,0.17,10),mat);
+    foreArmR.position.set(0.18,0.56,0.06);foreArmR.rotation.z=-0.38;foreArmR.rotation.x=-0.25;outerGroup.add(foreArmR);
+
+    // ─── ดาบพระราชา (ยกสูงขึ้นฟ้า + ยาวกว่า) ───
+    const swordGrp=new THREE.Group();
+    const blade=new THREE.Mesh(new THREE.BoxGeometry(0.026,0.56,0.010),new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.03,metalness:0.99,emissive:0x88aacc,emissiveIntensity:0.8}));
+    blade.position.y=0.28;swordGrp.add(blade);
+    const guard=new THREE.Mesh(new THREE.BoxGeometry(0.13,0.024,0.024),mat);guard.position.y=0.01;swordGrp.add(guard);
+    const grip=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.12,8),matDark);grip.position.y=-0.07;swordGrp.add(grip);
+    // pommel
+    const pommel=new THREE.Mesh(new THREE.SphereGeometry(0.028,8,8),mat);pommel.position.y=-0.135;swordGrp.add(pommel);
+    // blade glow streak
+    const bladeGlow=new THREE.Mesh(new THREE.BoxGeometry(0.009,0.54,0.003),new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:2.5,transparent:true,opacity:0.55}));
+    bladeGlow.position.y=0.28;swordGrp.add(bladeGlow);
+    outerGroup.userData.bladeGlow=bladeGlow;
+    // วางดาบยกสูงเฉียงไปข้างหน้า
+    swordGrp.position.set(0.26,0.72,0.10);
+    swordGrp.rotation.x=-0.28;swordGrp.rotation.z=-0.18;
+    outerGroup.add(swordGrp);outerGroup.userData.swordGrp=swordGrp;
+
+    // ─── คอ + หัวเกราะ ───
+    const neck=new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.082,0.07,12),mat);neck.position.set(0,0.715,0);outerGroup.add(neck);
+    const helmetBase=new THREE.Mesh(new THREE.SphereGeometry(0.108,16,14),mat);helmetBase.scale.set(1,1.10,0.97);helmetBase.position.set(0,0.820,0);outerGroup.add(helmetBase);
+    const helmBrim=new THREE.Mesh(new THREE.CylinderGeometry(0.120,0.115,0.024,16),mat);helmBrim.position.set(0,0.758,0);outerGroup.add(helmBrim);
+    const visor=new THREE.Mesh(new THREE.BoxGeometry(0.122,0.062,0.068),matVisor);visor.position.set(0,0.820,0.082);visor.rotation.x=-0.10;outerGroup.add(visor);
+    [-0.030,0.030].forEach(xOff=>{
+        const eyeSlit=new THREE.Mesh(new THREE.BoxGeometry(0.026,0.013,0.08),new THREE.MeshStandardMaterial({color:colorHex,roughness:0,metalness:0,emissive:colorHex,emissiveIntensity:3.2}));
+        eyeSlit.position.set(xOff,0.826,0.088);outerGroup.add(eyeSlit);
+    });
+
+    // ─── มงกุฎทอง (วางบนหมวกเกราะ) ───
+    const crownRing=new THREE.Mesh(new THREE.CylinderGeometry(0.092,0.100,0.036,16),crownMat);
+    crownRing.position.set(0,0.910,0);outerGroup.add(crownRing);
+    for(let p=0;p<6;p++){
+        const angle=(p/6)*Math.PI*2;
+        const cx=Math.cos(angle)*0.085,cz=Math.sin(angle)*0.085;
+        const spike=new THREE.Mesh(new THREE.ConeGeometry(0.013,0.09,6),crownMat);spike.position.set(cx,0.960,cz);
+        const bead=new THREE.Mesh(new THREE.SphereGeometry(0.016,8,8),crownMat);bead.position.set(cx*1.08,1.030,cz*1.08);
+        outerGroup.add(spike);outerGroup.add(bead);
+    }
+    // ขนนกสีตาม faction
+    const plume=new THREE.Mesh(new THREE.CylinderGeometry(0.010,0.022,0.26,8),new THREE.MeshStandardMaterial({color:colorHex,roughness:0.55,metalness:0.08,emissive:colorHex,emissiveIntensity:0.55}));
+    plume.position.set(0,1.065,-0.018);outerGroup.add(plume);
+    // แก้วกลางมงกุฎ (gem) — glow
+    const gem=new THREE.Mesh(new THREE.OctahedronGeometry(0.028,0),new THREE.MeshStandardMaterial({color:0xffffff,emissive:colorHex,emissiveIntensity:5.5,transparent:true,opacity:0.92}));
+    gem.position.set(0,1.005,0);outerGroup.add(gem);outerGroup.userData.crownGem=gem;
+
+    // ─── ผ้าคลุมราชา (cape) ── ด้านหลัง ───
+    const capeMat=new THREE.MeshStandardMaterial({color:colorHex,roughness:0.7,metalness:0.05,emissive:emissiveHex,emissiveIntensity:0.20,side:THREE.DoubleSide});
+    for(let c2=0;c2<4;c2++){
+        const capePanel=new THREE.Mesh(new THREE.PlaneGeometry(0.14,0.28),capeMat);
+        capePanel.position.set((c2-1.5)*0.055,0.52,-0.12-c2*0.01);
+        capePanel.rotation.x=0.25+c2*0.06;outerGroup.add(capePanel);
+    }
+
+    outerGroup.scale.setScalar(0.72);
+    // position.y จัดการโดย drawPieces
+    return outerGroup;
 }
 
 // ==========================================
@@ -983,9 +1183,17 @@ function drawPieces(){
                 }
             }else if(selectedTheme==='knight'){
                 const matConfig=isRed?theme.pieceRed:theme.pieceBlue;
-                pieceMesh=createKnightFigure(matConfig.color,matConfig.emissive||0x000000,isKing);
-                if(!isRed)pieceMesh.rotation.y=Math.PI;
-                pieceMesh.position.set(c-3.5,0,r-3.5);
+                if(isKing){
+                    pieceMesh=createKingOnHorse(matConfig.color,matConfig.emissive||0x000000);
+                }else{
+                    pieceMesh=createKnightFigure(matConfig.color,matConfig.emissive||0x000000);
+                }
+                // ฝั่งแดง (แถวล่าง): หันหน้าไปทาง -Z เข้าหาแถว 0
+                // ฝั่งน้ำเงิน (แถวบน): หันหน้าไปทาง +Z เข้าหาแถว 7 — ทั้งสองหันประทะกัน
+                pieceMesh.rotation.y=isRed?Math.PI:0;
+                // y: วางให้เท้า/กีบแตะบนกระดาน (tile top surface = 0.075)
+                const knightY = isKing ? 0.07 : 0.12;
+                pieceMesh.position.set(c-3.5, knightY, r-3.5);
             }else{
                 let sideMat,topMat;
                 if(selectedTheme==='royalwood'){
@@ -1400,24 +1608,35 @@ function updatePieceBlinks(){
 }
 
 // ==========================================
-// [King Gem Pulse + Weapon Glow Animation]
+// [Gem Pulse + Weapon Glow + King Horse Sway]
 // ==========================================
 function updateKnightPieceAnims(){
     const t=Date.now()*0.001;
     piece3DObjects.forEach((p,idx)=>{
         if(selectedTheme!=='knight')return;
-        // crown gem pulse
-        if(p.userData.crownGem){const gem=p.userData.crownGem;gem.material.emissiveIntensity=4+Math.sin(t*3.5)*2;}
-        // blade glow flicker
-        if(p.userData.bladeGlow){const bg=p.userData.bladeGlow;bg.material.opacity=0.4+Math.sin(t*4+idx)*0.35;bg.material.emissiveIntensity=1.2+Math.sin(t*3.2+idx*0.5)*0.8;}
-        // axe glow pulse (for king)
-        if(p.userData.axeGlow){const ag=p.userData.axeGlow;ag.material.emissiveIntensity=2.5+Math.sin(t*2.5+idx)*1.5;}
-        // shield star flicker
-        // idle breathing: อัศวินขยับตัวเล็กน้อย (bob up/down)
+        // crown gem pulse (king on horse)
+        if(p.userData.crownGem){
+            const gem=p.userData.crownGem;
+            gem.material.emissiveIntensity=4.5+Math.sin(t*3.5+idx)*2.2;
+            gem.rotation.y+=0.04;
+        }
+        // blade glow flicker (knight sword)
+        if(p.userData.bladeGlow){
+            const bg=p.userData.bladeGlow;
+            bg.material.opacity=0.38+Math.sin(t*4.2+idx)*0.32;
+            bg.material.emissiveIntensity=1.5+Math.sin(t*3.5+idx*0.6)*1.0;
+        }
+        // idle breathing
         const isAnimating=pieceAnimations.some(a=>a.mesh===p)||capturedAnimations.some(a=>a.mesh===p)||knightJumpAnimations.some(a=>a.mesh===p);
         if(!isAnimating){
             if(p.userData.baseY===undefined)p.userData.baseY=p.position.y;
-            p.position.y=p.userData.baseY+Math.sin(t*1.4+idx*1.1)*0.015;
+            const isKingHorse=p.userData.crownGem!==undefined;
+            if(isKingHorse){
+                p.position.y=p.userData.baseY+Math.sin(t*2.2+idx*1.3)*0.022;
+                p.rotation.z=Math.sin(t*1.8+idx)*0.018;
+            }else{
+                p.position.y=p.userData.baseY+Math.sin(t*1.4+idx*1.1)*0.014;
+            }
         }
     });
 }
@@ -1496,2439 +1715,5 @@ applyTheme('knight'); // เริ่มด้วย Knight theme เพื่�
 document.getElementById('theme-select').value='knight';
 updateTitleText();updateUI(false);animate();
 </script>
-</body>
-</html>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>หมากฮอสไทย 3D พรีเมียม - ลายไม้สมจริง</title>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            user-select: none;
-            -webkit-user-select: none;
-            font-family: 'Sarabun', sans-serif;
-        }
-
-        body {
-            overflow: hidden;
-            background-color: #0b0806;
-            position: fixed;
-            width: 100%;
-            height: 100%;
-            transition: background-color 0.8s ease;
-        }
-
-        #canvas-wrapper {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 0;
-            overflow: hidden;
-            pointer-events: none;
-        }
-        #canvas-wrapper canvas {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100% !important;
-            height: 100% !important;
-            display: block;
-            pointer-events: auto;
-            touch-action: none;
-        }
-
-        #control-panel {
-            touch-action: pan-y;
-            overscroll-behavior: contain;
-        }
-
-        #turn-display-container {
-            position: fixed;
-            top: 14px;
-            left: 60px;
-            right: 60px;
-            z-index: 20;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 5px;
-            pointer-events: none;
-        }
-
-        #turn-display {
-            padding: 9px 18px;
-            font-size: 13px;
-            font-weight: 700;
-            border-radius: 50px;
-            text-align: center;
-            width: 100%;
-            max-width: 360px;
-            letter-spacing: 0.3px;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .turn-red {
-            background: linear-gradient(135deg, rgba(210,25,25,0.93), rgba(150,15,10,0.97));
-            color: #fff;
-            border: 1px solid rgba(255,90,90,0.5);
-            box-shadow: 0 4px 18px rgba(255,20,20,0.35);
-        }
-
-        .turn-blue {
-            background: linear-gradient(135deg, rgba(140,90,45,0.95), rgba(75,42,16,0.97));
-            color: #fff;
-            border: 1px solid rgba(220,175,115,0.5);
-            box-shadow: 0 4px 18px rgba(120,76,36,0.35);
-        }
-
-        #combo-timer-display {
-            display: none;
-            background: rgba(210,25,25,0.96);
-            border: 1px solid rgba(255,255,255,0.2);
-            color: white;
-            padding: 4px 14px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 700;
-            box-shadow: 0 3px 14px rgba(255,40,40,0.4);
-            animation: pulse-border 0.9s infinite;
-            pointer-events: none;
-        }
-
-        @keyframes pulse-border {
-            0%,100% { opacity: 0.85; transform: scale(1); }
-            50% { opacity: 1; transform: scale(1.04); }
-        }
-        @keyframes forceJumpWarning {
-            0%,100% { transform: scale(1); }
-            20% { transform: translateX(-6px) scale(1.04); background: rgba(210,0,0,0.97); }
-            40% { transform: translateX(6px) scale(1.04); }
-            60% { transform: translateX(-3px) scale(1.01); }
-            80% { transform: translateX(3px) scale(1.01); }
-        }
-        @keyframes turnSlide {
-            0% { opacity: 0; transform: translateY(-8px) scale(0.94); }
-            100% { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes pieceSelected {
-            0%,100% { transform: scale(1); }
-            50% { transform: scale(1.06); }
-        }
-
-        #panel-toggle-trigger {
-            position: fixed;
-            top: 14px;
-            left: 14px;
-            width: 40px;
-            height: 40px;
-            background: rgba(22,16,12,0.95);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            border: 1px solid rgba(230,197,148,0.28);
-            color: #e6c594;
-            font-size: 18px;
-            cursor: pointer;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 3px 14px rgba(0,0,0,0.5);
-            transition: all 0.35s cubic-bezier(0.19,1,0.22,1);
-            z-index: 101;
-        }
-        #panel-toggle-trigger:hover { color: #ffd700; border-color: rgba(255,215,0,0.45); }
-        #panel-toggle-trigger:active { transform: scale(0.88); }
-
-        .side-nametag {
-            position: fixed;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 4px 14px;
-            font-size: 11px;
-            font-weight: 700;
-            border-radius: 20px;
-            color: rgba(255,255,255,0.88);
-            pointer-events: none;
-            z-index: 8;
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            white-space: nowrap;
-            max-width: 50vw;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.55);
-        }
-        #nametag-top {
-            top: 62px;
-            background: rgba(65,38,10,0.92);
-            border: 1px solid rgba(190,150,80,0.3);
-        }
-        #nametag-bottom {
-            bottom: 62px;
-            background: rgba(100,10,10,0.92);
-            border: 1px solid rgba(255,90,90,0.28);
-        }
-
-        #bottom-bar {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 52px;
-            z-index: 15;
-            display: flex;
-            align-items: stretch;
-            background: rgba(14,10,6,0.92);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            border-top: 1px solid rgba(255,255,255,0.07);
-        }
-        #login-shortcut-btn {
-            flex: 1;
-            background: transparent;
-            border: none;
-            border-right: 1px solid rgba(255,255,255,0.07);
-            color: #e6c594;
-            padding: 0 16px;
-            font-size: 12px;
-            font-weight: 700;
-            cursor: pointer;
-            z-index: 10;
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            transition: background 0.2s ease;
-            font-family: 'Sarabun', sans-serif;
-        }
-        #login-shortcut-btn:hover { background: rgba(230,197,148,0.08); }
-        #login-shortcut-btn:active { background: rgba(230,197,148,0.15); }
-        #zoom-controls {
-            display: flex;
-            align-items: stretch;
-            flex-shrink: 0;
-        }
-        .zoom-btn {
-            width: 52px;
-            height: 52px;
-            background: transparent;
-            border: none;
-            border-left: 1px solid rgba(255,255,255,0.07);
-            color: #fff;
-            font-size: 20px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: background 0.15s ease;
-            border-radius: 0;
-        }
-        .zoom-btn:hover { background: rgba(255,255,255,0.06); }
-        .zoom-btn:active { background: #e6c594; color: #111; }
-
-        #control-panel {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            max-width: 320px;
-            height: 100%;
-            background: rgba(18, 13, 9, 0.97);
-            backdrop-filter: blur(18px);
-            -webkit-backdrop-filter: blur(18px);
-            border-right: 1px solid rgba(255, 255, 255, 0.07);
-            padding: 20px 16px 24px;
-            color: #f5f6fa;
-            z-index: 100;
-            transition: transform 0.42s cubic-bezier(0.19, 1, 0.22, 1);
-            box-shadow: 10px 0 40px rgba(0,0,0,0.9);
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-            overflow-y: auto;
-            overflow-x: hidden;
-            overscroll-behavior: contain;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        #control-panel.collapsed {
-            transform: translateX(-100%);
-        }
-
-        h2 {
-            color: #e6c594;
-            text-align: center;
-            font-size: 20px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            text-shadow: 0 0 10px rgba(230, 197, 148, 0.3);
-        }
-
-        h3 {
-            color: #00a8ff;
-            font-size: 13px;
-            font-weight: 600;
-            margin-bottom: 8px;
-            border-left: 3px solid #00a8ff;
-            padding-left: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .section {
-            background: rgba(255, 255, 255, 0.03);
-            padding: 14px;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: inset 0 2px 4px rgba(255,255,255,0.02);
-            transition: all 0.3s;
-        }
-
-        .section:hover {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: rgba(255, 255, 255, 0.08);
-        }
-
-        label {
-            display: block;
-            font-size: 11px;
-            margin-bottom: 6px;
-            color: #a4b0be;
-            font-weight: 600;
-        }
-
-        select, input {
-            width: 100%;
-            padding: 10px 12px;
-            background: #0f0b08;
-            border: 1px solid rgba(255,255,255,0.12);
-            color: #ffffff;
-            border-radius: 8px;
-            font-size: 13px;
-            outline: none;
-            transition: all 0.3s ease;
-        }
-
-        select:focus, input:focus {
-            border-color: #e6c594;
-            box-shadow: 0 0 8px rgba(230, 197, 148, 0.25);
-        }
-
-        button {
-            width: 100%;
-            padding: 11px;
-            font-weight: 700;
-            cursor: pointer;
-            border-radius: 8px;
-            border: none;
-            font-size: 13px;
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #e6c594, #c2a170);
-            color: #0f0b08;
-            margin-top: 5px;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(230, 197, 148, 0.4);
-        }
-
-        .btn-danger {
-            background: rgba(255, 71, 87, 0.15);
-            color: #ff4757;
-            border: 1px solid rgba(255, 71, 87, 0.3);
-            margin-top: 8px;
-            padding: 8px;
-            font-size: 11px;
-        }
-
-        .btn-danger:hover {
-            background: #ff4757;
-            color: #ffffff;
-            box-shadow: 0 4px 12px rgba(255, 71, 87, 0.3);
-        }
-
-        #server-status {
-            font-size: 11px;
-            text-align: center;
-            color: #a4b0be;
-            margin-top: auto;
-            padding-top: 10px;
-            border-top: 1px solid rgba(255,255,255,0.05);
-        }
-
-        #friend-select-section {
-            display: none;
-        }
-
-        #game-over-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.88);
-            backdrop-filter: blur(10px);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-content {
-            background: rgba(26, 18, 12, 0.95);
-            backdrop-filter: blur(12px);
-            border: 2px solid #e6c594;
-            padding: 35px 25px;
-            border-radius: 24px;
-            text-align: center;
-            box-shadow: 0 0 60px rgba(230, 197, 148, 0.4);
-            width: 85%;
-            max-width: 380px;
-            animation: modalFadeIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-
-        @keyframes modalFadeIn {
-            from { transform: scale(0.8); opacity: 0; }
-            to { transform: scale(1); opacity: 1; }
-        }
-        @keyframes apFloat {
-            0% { opacity: 0; transform: translateY(0) scale(0.8); }
-            20% { opacity: 1; transform: translateY(-10px) scale(1.05); }
-            80% { opacity: 0.8; transform: translateY(-40px) scale(1); }
-            100% { opacity: 0; transform: translateY(-60px) scale(0.9); }
-        }
-
-        .modal-content h1 {
-            color: #fff;
-            font-size: 26px;
-            margin-bottom: 12px;
-            letter-spacing: 0.5px;
-        }
-
-        .modal-content p {
-            color: #e6c594;
-            font-size: 20px;
-            font-weight: bold;
-            margin-bottom: 25px;
-            text-shadow: 0 0 8px rgba(230, 197, 148, 0.3);
-        }
-
-        .btn-restart {
-            background: linear-gradient(135deg, #f1c40f, #f39c12);
-            color: #111;
-            padding: 13px 26px;
-            font-size: 15px;
-            border-radius: 50px;
-            box-shadow: 0 6px 25px rgba(241, 196, 15, 0.45);
-            width: auto;
-        }
-        .btn-restart:hover { transform: scale(1.05); box-shadow: 0 8px 30px rgba(241,196,15,0.6); }
-
-        .btn-quit {
-            background: rgba(255,71,87,0.15);
-            color: #ff6b7a;
-            border: 1.5px solid rgba(255,71,87,0.4);
-            padding: 13px 26px;
-            font-size: 15px;
-            border-radius: 50px;
-            width: auto;
-            cursor: pointer;
-            font-weight: 700;
-            transition: all 0.25s ease;
-        }
-        .btn-quit:hover { background: #ff4757; color: #fff; box-shadow: 0 6px 22px rgba(255,71,87,0.45); }
-
-        @keyframes cryBounce {
-            0%,100% { transform: translateY(0) rotate(-2deg); }
-            50% { transform: translateY(-8px) rotate(2deg); }
-        }
-        @keyframes winPulse {
-            0%,100% { transform: scale(1); }
-            50% { transform: scale(1.18); }
-        }
-        .emoji-win { animation: winPulse 0.7s ease-in-out infinite; display: inline-block; }
-        .emoji-cry { animation: cryBounce 0.9s ease-in-out infinite; display: inline-block; }
-
-        .stats-table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            font-size: 11px;
-            margin-top: 8px;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        .stats-table thead th {
-            background: rgba(230, 197, 148, 0.12);
-            color: #e6c594;
-            padding: 7px 6px;
-            text-align: center;
-            font-weight: 700;
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-        }
-        .stats-table tbody td {
-            padding: 6px;
-            text-align: center;
-            color: #ccc;
-            border-bottom: 1px solid rgba(255,255,255,0.03);
-            transition: background 0.2s;
-        }
-        .stats-table tbody tr:hover td { background: rgba(255,255,255,0.04); }
-        .stats-table tbody tr:last-child td { border-bottom: none; }
-        .stats-table .opponent-name {
-            text-align: left;
-            color: #e6c594;
-            font-weight: 600;
-            max-width: 90px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-        .stats-win { color: #2ecc71; font-weight: 700; }
-        .stats-loss { color: #ff4757; font-weight: 700; }
-        .stats-winrate {
-            font-weight: 700;
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 10px;
-            display: inline-block;
-            min-width: 38px;
-        }
-        .stats-winrate.high { background: rgba(46,204,113,0.18); color: #2ecc71; }
-        .stats-winrate.mid { background: rgba(241,196,15,0.18); color: #f1c40f; }
-        .stats-winrate.low { background: rgba(255,71,87,0.15); color: #ff4757; }
-        .stats-empty { text-align: center; color: #555; padding: 12px 0; font-size: 12px; }
-        .stats-summary { display: flex; justify-content: space-around; margin-bottom: 8px; gap: 6px; }
-        .stats-summary-item {
-            text-align: center; flex: 1;
-            background: rgba(255,255,255,0.03);
-            border-radius: 8px; padding: 8px 4px;
-            border: 1px solid rgba(255,255,255,0.04);
-        }
-        .stats-summary-item .num { font-size: 20px; font-weight: 700; display: block; line-height: 1.2; }
-        .stats-summary-item .lbl { font-size: 9px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; }
-    </style>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <script>
-        if (typeof io === 'undefined') {
-            const script = document.createElement('script');
-            script.src = '/socket.io/socket.io.js';
-            document.head.appendChild(script);
-        }
-    </script>
-</head>
-<body>
-
-    <div id="turn-display-container">
-        <div id="turn-display" class="turn-red">กำลังจัดเตรียมกระดาน...</div>
-        <div id="combo-timer-display">⚡ ต้องกินต่อ! เวลาที่เหลือ: 5.0 วินาที</div>
-    </div>
-
-    <div id="nametag-top" class="side-nametag">ฝั่งตรงข้าม</div>
-    <div id="nametag-bottom" class="side-nametag">ตัวคุณ</div>
-
-    <div id="bottom-bar">
-        <button id="login-shortcut-btn" onclick="openLoginPanel(); SoundEffects.playClick();">👤 จัดการโปรไฟล์ / เข้าสู่ระบบ</button>
-        <div id="zoom-controls">
-            <div class="zoom-btn" onclick="zoomGame(-1.5); SoundEffects.playClick();" title="ซูมเข้า">＋</div>
-            <div class="zoom-btn" onclick="zoomGame(1.5); SoundEffects.playClick();" title="ซูมออก">－</div>
-        </div>
-    </div>
-
-    <canvas id="fx-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:998;pointer-events:none;display:none;"></canvas>
-
-    <div id="game-over-modal">
-        <div class="modal-content">
-            <div id="modal-emoji" style="font-size:64px;line-height:1;margin-bottom:8px;">🏆</div>
-            <h1 id="modal-title" style="margin-bottom:6px;">จบการแข่งขัน</h1>
-            <p id="winner-text">ฝ่ายสีแดง ชนะ!</p>
-            <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-                <button class="btn-restart" onclick="restartFromModal(); SoundEffects.playClick();">🔄 เล่นอีกครั้ง</button>
-                <button class="btn-quit" onclick="quitGame(); SoundEffects.playClick();">🚪 เลิกเล่น</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="canvas-wrapper"></div>
-    <button id="panel-toggle-trigger" onclick="toggleMainPanel(); SoundEffects.playClick();">☰</button>
-    <div id="control-panel" class="collapsed">
-        <h2 id="h2h-title">หมากฮอสไทย 3D</h2>
-        <p style="font-size:11px; text-align:center; color:#95a5a6; margin-top:-5px;">ระบบกระดานออนไลน์ Real-time</p>
-
-        <div class="section">
-            <h3>👤 โปรไฟล์ผู้เล่น</h3>
-            <div id="auth-section" style="margin-top:5px;">
-                <label>ตั้งชื่อเล่นของคุณ:</label>
-                <input type="text" id="username-input" placeholder="พิมพ์ชื่อภาษาอังกฤษ..." maxlength="15">
-                <button class="btn-primary" onclick="registerPlayer(); SoundEffects.playClick();">เข้าสู่ระบบออนไลน์</button>
-            </div>
-            <div id="profile-section" style="display: none; text-align: center; margin-top: 5px;">
-                <p>ผู้เล่นออนไลน์: <strong id="user-display" style="color:#ffd700;">-</strong></p>
-                <button class="btn-danger" onclick="logoutPlayer(); SoundEffects.playClick();">ออกจากระบบ</button>
-            </div>
-        </div>
-
-        <div class="section">
-            <h3>🎮 โหมดการเล่น</h3>
-            <label style="margin-top:5px;">เลือกประเภทการจับคู่:</label>
-            <select id="game-mode-select" onchange="changeGameMode(this.value); SoundEffects.playClick();">
-                <option value="bot" selected>🤖 สู้กับบอท (AI Computer)</option>
-                <option value="local">👥 เล่นสองคนบนเครื่องเดียวกัน (Local)</option>
-                <option value="online">🌐 ประลองออนไลน์ข้ามเครื่อง (Multiplayer)</option>
-            </select>
-
-            <div id="ai-difficulty-container" style="margin-top: 10px;">
-                <label>ระดับความยากของบอท AI:</label>
-                <select id="ai-difficulty-select" onchange="changeAiDifficulty(this.value); SoundEffects.playClick();">
-                    <option value="easy">🟢 ง่าย (เดินสุ่มทั่วไป)</option>
-                    <option value="medium" selected>🟡 ปานกลาง (เน้นเดินกินหมากคุณ)</option>
-                    <option value="hard">🔴 ยาก (คิดลอจิกเป็นขุน / กินได้เปรียบ)</option>
-                </select>
-            </div>
-        </div>
-
-        <div class="section">
-            <h3>🎨 ธีมกระดาน 3D</h3>
-            <label style="margin-top:5px;">เลือกสกินการออกแบบ:</label>
-            <select id="theme-select" onchange="applyTheme(this.value); SoundEffects.playClick();">
-                <option value="royalwood" selected>🪵 Royal Mahogany Wood</option>
-                <option value="obsidian">💎 Obsidian Dark Glass</option>
-                <option value="chess">♟️ Classic Chess (หมากรุก)</option>
-                <option value="knight">⚔️ Knight Battle (อัศวิน)</option>
-            </select>
-        </div>
-
-        <div class="section" id="friend-select-section">
-            <h3>⚔️ รายชื่อผู้ท้าชิงออนไลน์</h3>
-            <select id="friend-list-select" onchange="selectOnlineFriend(this.value); SoundEffects.playClick();">
-                <option value="">-- ไม่พบผู้เล่นอื่นออนไลน์ --</option>
-            </select>
-        </div>
-
-        <div class="section" id="stats-section">
-            <h3>📊 สถิติการเจอกัน</h3>
-            <div id="stats-content">
-                <p class="stats-empty">ยังไม่มีข้อมูลสถิติ</p>
-            </div>
-            <button class="btn-danger" onclick="clearAllStats(); SoundEffects.playClick();" style="margin-top: 6px; font-size: 10px;">🗑️ ล้างสถิติทั้งหมด</button>
-        </div>
-
-        <button class="btn-primary" style="padding:12px; font-size:15px; background: linear-gradient(135deg, #f1c40f, #f39c12); color:#111;" onclick="startGameSession(); SoundEffects.playClick();">🏁 เริ่มเกมใหม่ / รีเซ็ต</button>
-
-        <div id="server-status">กำลังตรวจสอบการเชื่อมต่อเซิร์ฟเวอร์...</div>
-    </div>
-
-    <script>
-        window.onerror = function(msg, src, line) {
-            console.error("[Game Error] " + msg + " at " + src + ":" + line);
-        };
-
-        // ==========================================
-        //  [ระบบสังเคราะห์เสียงจำลอง (Web Audio Synth)]
-        // ==========================================
-        const SoundEffects = {
-            audioCtx: null,
-            init() {
-                if (this.audioCtx) return;
-                try { this.audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
-            },
-            playClick() {
-                this.init(); if (!this.audioCtx) return;
-                const ctx = this.audioCtx; if (ctx.state === 'suspended') ctx.resume();
-                const osc = ctx.createOscillator(); const gain = ctx.createGain();
-                osc.type = 'sine'; osc.frequency.setValueAtTime(450, ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(900, ctx.currentTime + 0.08);
-                gain.gain.setValueAtTime(0.12, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
-                osc.connect(gain); gain.connect(ctx.destination);
-                osc.start(); osc.stop(ctx.currentTime + 0.08);
-            },
-            playMove() {
-                this.init(); if (!this.audioCtx) return;
-                const ctx = this.audioCtx; if (ctx.state === 'suspended') ctx.resume();
-                const osc = ctx.createOscillator(); const gain = ctx.createGain();
-                osc.type = 'triangle'; osc.frequency.setValueAtTime(240, ctx.currentTime);
-                osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.22);
-                gain.gain.setValueAtTime(0.25, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.22);
-                osc.connect(gain); gain.connect(ctx.destination);
-                osc.start(); osc.stop(ctx.currentTime + 0.22);
-            },
-            playCapture() {
-                this.init(); if (!this.audioCtx) return;
-                const ctx = this.audioCtx; if (ctx.state === 'suspended') ctx.resume();
-                const osc1 = ctx.createOscillator(); const osc2 = ctx.createOscillator(); const gain = ctx.createGain();
-                osc1.type = 'sawtooth'; osc1.frequency.setValueAtTime(140, ctx.currentTime);
-                osc1.frequency.linearRampToValueAtTime(35, ctx.currentTime + 0.28);
-                osc2.type = 'square'; osc2.frequency.setValueAtTime(90, ctx.currentTime);
-                osc2.frequency.linearRampToValueAtTime(25, ctx.currentTime + 0.28);
-                gain.gain.setValueAtTime(0.35, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.32);
-                osc1.connect(gain); osc2.connect(gain); gain.connect(ctx.destination);
-                osc1.start(); osc2.start(); osc1.stop(ctx.currentTime + 0.32); osc2.stop(ctx.currentTime + 0.32);
-            },
-            playKing() {
-                this.init(); if (!this.audioCtx) return;
-                const ctx = this.audioCtx; if (ctx.state === 'suspended') ctx.resume();
-                const now = ctx.currentTime;
-                [261.63, 329.63, 392.00, 523.25, 659.25, 783.99].forEach((freq, idx) => {
-                    const osc = ctx.createOscillator(); const gain = ctx.createGain();
-                    osc.type = 'sine'; osc.frequency.setValueAtTime(freq, now + idx * 0.05);
-                    gain.gain.setValueAtTime(0.12, now + idx * 0.05);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.05 + 0.25);
-                    osc.connect(gain); gain.connect(ctx.destination);
-                    osc.start(now + idx * 0.05); osc.stop(now + idx * 0.05 + 0.25);
-                });
-            },
-            playWin() {
-                this.init(); if (!this.audioCtx) return;
-                const ctx = this.audioCtx; if (ctx.state === 'suspended') ctx.resume();
-                const now = ctx.currentTime;
-                [329.63, 392.00, 523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
-                    const osc = ctx.createOscillator(); const gain = ctx.createGain();
-                    osc.type = 'sine'; osc.frequency.setValueAtTime(freq, now + idx * 0.09);
-                    gain.gain.setValueAtTime(0.15, now + idx * 0.09);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.09 + 0.35);
-                    osc.connect(gain); gain.connect(ctx.destination);
-                    osc.start(now + idx * 0.09); osc.stop(now + idx * 0.09 + 0.35);
-                });
-            },
-            playLose() {
-                this.init(); if (!this.audioCtx) return;
-                const ctx = this.audioCtx; if (ctx.state === 'suspended') ctx.resume();
-                const now = ctx.currentTime;
-                [392.00, 349.23, 311.13, 261.63, 196.00].forEach((freq, idx) => {
-                    const osc = ctx.createOscillator(); const gain = ctx.createGain();
-                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(freq, now + idx * 0.12);
-                    gain.gain.setValueAtTime(0.08, now + idx * 0.12);
-                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.12 + 0.6);
-                    osc.connect(gain); gain.connect(ctx.destination);
-                    osc.start(now + idx * 0.12); osc.stop(now + idx * 0.12 + 0.6);
-                });
-            }
-        };
-
-        // ==========================================
-        //  [Procedural Wood / Carving Textures]
-        // ==========================================
-        function createWoodTexture(isDark) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            const baseColor = isDark ? '#5a3520' : '#e8d0a0';
-            const grainColor = isDark ? '#3a1f0e' : '#c8a870';
-            ctx.fillStyle = baseColor; ctx.fillRect(0, 0, 256, 256);
-            ctx.fillStyle = grainColor;
-            for (let i = 0; i < 240; i++) {
-                const w = 0.5 + Math.random() * 2.5; const x = Math.random() * 256;
-                const h = 40 + Math.random() * 210; const y = Math.random() * 256;
-                ctx.globalAlpha = 0.04 + Math.random() * 0.16;
-                ctx.fillRect(x, y - h/2, w, h);
-            }
-            ctx.strokeStyle = isDark ? '#0f0804' : '#ba9867';
-            ctx.lineWidth = 1; ctx.globalAlpha = 0.12;
-            for (let j = 0; j < 5; j++) {
-                const y = j * 51.2; ctx.beginPath();
-                ctx.moveTo(0, y); ctx.lineTo(256, y); ctx.stroke();
-            }
-            ctx.globalAlpha = 1.0;
-            return new THREE.CanvasTexture(canvas);
-        }
-
-        function createPieceCarvingTexture(bgColor, strokeColor) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = bgColor; ctx.fillRect(0, 0, 256, 256);
-            const cx = 128, cy = 128;
-            ctx.strokeStyle = strokeColor; ctx.lineWidth = 5.5;
-            ctx.shadowColor = strokeColor; ctx.shadowBlur = 1;
-            ctx.beginPath(); ctx.arc(cx, cy, 114, 0, Math.PI * 2); ctx.stroke();
-            ctx.beginPath(); ctx.arc(cx, cy, 96, 0, Math.PI * 2); ctx.stroke();
-            ctx.beginPath(); ctx.arc(cx, cy, 64, 0, Math.PI * 2); ctx.stroke();
-            ctx.beginPath(); ctx.arc(cx, cy, 40, 0, Math.PI * 2); ctx.stroke();
-            ctx.lineWidth = 3.5;
-            ctx.beginPath(); ctx.moveTo(cx-30,cy); ctx.lineTo(cx,cy-30); ctx.lineTo(cx+30,cy); ctx.lineTo(cx,cy+30); ctx.closePath(); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(cx-15,cy); ctx.lineTo(cx,cy-15); ctx.lineTo(cx+15,cy); ctx.lineTo(cx,cy+15); ctx.closePath(); ctx.stroke();
-            ctx.lineWidth = 3;
-            for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 6) {
-                const sx = cx + Math.cos(angle) * 64; const sy = cy + Math.sin(angle) * 64;
-                const ex = cx + Math.cos(angle) * 96; const ey = cy + Math.sin(angle) * 96;
-                ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke();
-            }
-            return new THREE.CanvasTexture(canvas);
-        }
-
-        // ==========================================
-        //  [NEW] ธีม Chess: Texture กระดานและหมาก
-        // ==========================================
-        function createChessBoardTexture(isLight) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            if (isLight) {
-                // ช่องสว่าง: งาช้างอุ่น + ลายไม้ละเอียด
-                ctx.fillStyle = '#f0d9b5'; ctx.fillRect(0,0,256,256);
-                for (let i = 0; i < 160; i++) {
-                    ctx.fillStyle = '#c8a87a';
-                    const w = 0.3 + Math.random() * 1.8;
-                    ctx.globalAlpha = 0.022 + Math.random() * 0.08;
-                    ctx.fillRect(Math.random()*256, Math.random()*360-52, w, 50+Math.random()*200);
-                }
-                // ขอบช่องคลาสสิก
-                ctx.globalAlpha = 0.28; ctx.strokeStyle = '#b89050'; ctx.lineWidth = 3;
-                ctx.strokeRect(2,2,252,252); ctx.lineWidth = 1.2; ctx.strokeRect(7,7,242,242);
-            } else {
-                // ช่องมืด: วอลนัทเข้มเงา
-                ctx.fillStyle = '#2c1810'; ctx.fillRect(0,0,256,256);
-                for (let i = 0; i < 160; i++) {
-                    ctx.fillStyle = '#180d07';
-                    const w = 0.3 + Math.random() * 1.8;
-                    ctx.globalAlpha = 0.04 + Math.random() * 0.13;
-                    ctx.fillRect(Math.random()*256, Math.random()*360-52, w, 50+Math.random()*200);
-                }
-                ctx.globalAlpha = 0.28; ctx.strokeStyle = '#0a0503'; ctx.lineWidth = 3;
-                ctx.strokeRect(2,2,252,252); ctx.lineWidth = 1.2; ctx.strokeRect(7,7,242,242);
-            }
-            ctx.globalAlpha = 1;
-            return new THREE.CanvasTexture(canvas);
-        }
-
-        function createChessPieceTopTexture(isWhite) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            // พื้นหลัง
-            ctx.fillStyle = isWhite ? '#f0ece4' : '#181008';
-            ctx.fillRect(0,0,256,256);
-            const cx = 128, cy = 128;
-            const stroke = isWhite ? '#999999' : '#4a4a38';
-            ctx.strokeStyle = stroke; ctx.shadowColor = stroke; ctx.shadowBlur = 2;
-            // วงกลมซ้อน 3 ชั้น (คล้ายหมากรุปคลาสสิก)
-            [[110,5],[80,4],[50,3.5]].forEach(([r,lw]) => {
-                ctx.lineWidth = lw; ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
-            });
-            // กากบาทกลาง
-            ctx.lineWidth = 4;
-            ctx.beginPath(); ctx.moveTo(cx-40,cy); ctx.lineTo(cx+40,cy); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(cx,cy-40); ctx.lineTo(cx,cy+40); ctx.stroke();
-            // ซี่รัศมี 8 ทิศเชื่อมวง
-            ctx.lineWidth = 3;
-            for (let a = 0; a < Math.PI*2; a += Math.PI/4) {
-                ctx.beginPath();
-                ctx.moveTo(cx+Math.cos(a)*50, cy+Math.sin(a)*50);
-                ctx.lineTo(cx+Math.cos(a)*80, cy+Math.sin(a)*80);
-                ctx.stroke();
-            }
-            // จุดประดับ 4 มุม
-            ctx.lineWidth = 2;
-            [Math.PI/4, 3*Math.PI/4, 5*Math.PI/4, 7*Math.PI/4].forEach(a => {
-                ctx.beginPath(); ctx.arc(cx+Math.cos(a)*94, cy+Math.sin(a)*94, 7, 0, Math.PI*2); ctx.stroke();
-            });
-            return new THREE.CanvasTexture(canvas);
-        }
-
-        // แคช texture หมากรุป
-        let chessBoardDarkTex = null, chessBoardLightTex = null;
-        let chessPieceWhiteTex = null, chessPieceBlackTex = null;
-        function initChessTextures() {
-            chessBoardDarkTex  = createChessBoardTexture(false);
-            chessBoardLightTex = createChessBoardTexture(true);
-            chessPieceWhiteTex = createChessPieceTopTexture(true);
-            chessPieceBlackTex = createChessPieceTopTexture(false);
-        }
-        initChessTextures();
-
-        // ==========================================
-        //  [ระบบจำลองธีมกระดาน 3D (3D Themes)]
-        // ==========================================
-        const THEMES = {
-            royalwood: {
-                dark:  { color: 0x4e2511, roughness: 0.5,  metalness: 0.05, emissive: 0x000000 },
-                light: { color: 0xeedcb3, roughness: 0.4,  metalness: 0.05, emissive: 0x000000 },
-                bg: 0x0a0705,
-                pieceRed:  { color: 0xffffff, roughness: 0.28, metalness: 0.15 }, // สีขาว
-                pieceBlue: { color: 0xff6a00, roughness: 0.30, metalness: 0.20 }  // สีส้ม
-            },
-            obsidian: {
-                dark:  { color: 0x06060a, roughness: 0.04, metalness: 0.95, emissive: 0x000000 },
-                light: { color: 0xdedede, roughness: 0.08, metalness: 0.9,  emissive: 0x111111 },
-                bg: 0x08090d,
-                pieceRed:  { color: 0xff2a2a, roughness: 0.08, metalness: 0.65, emissive: 0x3a0000 },
-                pieceBlue: { color: 0x1188e8, roughness: 0.08, metalness: 0.65, emissive: 0x001a35 }
-            },
-            chess: {
-                dark:  { color: 0x2c1810, roughness: 0.42, metalness: 0.06, emissive: 0x000000 },
-                light: { color: 0xf0d9b5, roughness: 0.36, metalness: 0.04, emissive: 0x000000 },
-                bg: 0x07050a,
-                pieceRed:  { color: 0xf5f0e8, roughness: 0.20, metalness: 0.18, emissive: 0x111111 },
-                pieceBlue: { color: 0xffd700, roughness: 0.18, metalness: 0.55, emissive: 0x332200 }
-            },
-            // ===== NEW: Knight Battle Theme — อัศวินเหลือง vs น้ำเงิน =====
-            knight: {
-                dark:  { color: 0x4e2511, roughness: 0.5,  metalness: 0.05, emissive: 0x000000 },
-                light: { color: 0xeedcb3, roughness: 0.4,  metalness: 0.05, emissive: 0x000000 },
-                bg: 0x0a0705,
-                pieceRed:  { color: 0xffd700, roughness: 0.15, metalness: 0.80, emissive: 0x332200 }, // เหลืองทอง
-                pieceBlue: { color: 0xc8d0d8, roughness: 0.12, metalness: 0.88, emissive: 0x0a0a10 }  // เงิน
-            }
-        };
-
-        let selectedTheme = 'royalwood';
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(THEMES[selectedTheme].bg);
-
-        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const ZOOM_MIN = 2.0; const ZOOM_MAX = 28.0; let currentZoomLevel = 0;
-
-        let currentTurn = 1; let selectedPiece = null; let isGameOver = false;
-        let gameMode = 'bot'; let aiDifficulty = 'medium'; let selectedFriend = ''; let myRole = 'red';
-        let jumpCount = 0; let comboPiece = null; let comboTimer = null; let comboTimeLeft = 5.0;
-        let piece3DObjects = []; let tiles3DObjects = []; const BOARD_SIZE = 8;
-        const particles = [];
-
-        let darkWoodTexture = null, lightWoodTexture = null;
-        let pieceRedCarvingTexture = null, pieceBlueCarvingTexture = null;
-        function initProceduralTextures() {
-            darkWoodTexture = createWoodTexture(true); lightWoodTexture = createWoodTexture(false);
-            pieceRedCarvingTexture = createPieceCarvingTexture('#ffffff', '#aaaaaa');  // ขาว + ลายเทา
-            pieceBlueCarvingTexture = createPieceCarvingTexture('#ff6a00', '#8b3300'); // ส้ม + ลายส้มเข้ม
-        }
-        initProceduralTextures();
-
-        function adjustCameraForDevice() {
-            const aspect = window.innerWidth / window.innerHeight;
-            let zDir = (gameMode === 'online' && myRole === 'blue') ? -1.0 : 1.0;
-            let base = { x:0, y:8.5, z:8.5*zDir };
-            if (aspect < 1) base = { x:0, y:11.5, z:8.0*zDir };
-            else if (aspect < 1.3) base = { x:0, y:9.5, z:8.5*zDir };
-            const dir = new THREE.Vector3(base.x, base.y, base.z).normalize();
-            const baseLength = 12.0;
-            let tLen = baseLength + currentZoomLevel;
-            if (tLen < ZOOM_MIN) { tLen = ZOOM_MIN; currentZoomLevel = ZOOM_MIN - baseLength; }
-            if (tLen > ZOOM_MAX) { tLen = ZOOM_MAX; currentZoomLevel = ZOOM_MAX - baseLength; }
-            dir.multiplyScalar(tLen);
-            camera.position.set(dir.x, dir.y, dir.z);
-            camera.lookAt(0, -0.6, 0);
-        }
-        adjustCameraForDevice();
-
-        function zoomGame(amount) { currentZoomLevel += amount; adjustCameraForDevice(); }
-
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-        document.getElementById('canvas-wrapper').appendChild(renderer.domElement);
-
-        scene.add(new THREE.AmbientLight(0xffffff, 0.72));
-        const dirLight = new THREE.DirectionalLight(0xfff5e6, 0.85);
-        dirLight.position.set(-4, 7, 4); dirLight.castShadow = true;
-        dirLight.shadow.mapSize.width = 2048; dirLight.shadow.mapSize.height = 2048;
-        dirLight.shadow.camera.near = 0.5; dirLight.shadow.camera.far = 18;
-        const d = 5.2;
-        dirLight.shadow.camera.left = -d; dirLight.shadow.camera.right = d;
-        dirLight.shadow.camera.top = d; dirLight.shadow.camera.bottom = -d;
-        dirLight.shadow.bias = -0.0004;
-        scene.add(dirLight);
-        const rimLight = new THREE.DirectionalLight(0xddeeff, 0.3);
-        rimLight.position.set(5, 6, -5); scene.add(rimLight);
-
-        let boardState = [
-            [0,2,0,2,0,2,0,2],[2,0,2,0,2,0,2,0],
-            [0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],
-            [0,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,0]
-        ];
-
-        // ==========================================
-        //  Piece Animations
-        // ==========================================
-        let pieceAnimations = []; let capturedAnimations = [];
-        function animatePieceMove(mesh, endX, endY, endZ, onComplete) {
-            const startX = mesh.position.x;
-            const startY = mesh.userData.baseY !== undefined ? mesh.userData.baseY : mesh.position.y;
-            const startZ = mesh.position.z;
-            pieceAnimations.push({ mesh, startX, startY, startZ, endX, endY, endZ, progress: 0, onComplete });
-        }
-        function animatePieceDrop(mesh, onComplete) {
-            capturedAnimations.push({ mesh, startY: mesh.position.y, progress: 0, onComplete });
-        }
-        function updatePieceAnimations() {
-            for (let i = pieceAnimations.length - 1; i >= 0; i--) {
-                const a = pieceAnimations[i];
-                a.progress += 0.07;
-                if (a.progress >= 1) {
-                    a.progress = 1; a.mesh.position.set(a.endX, a.endY, a.endZ);
-                    a.mesh.userData.baseY = a.endY; pieceAnimations.splice(i, 1);
-                    if (a.onComplete) a.onComplete();
-                } else {
-                    const t = a.progress < 0.5 ? 4*a.progress*a.progress*a.progress : 1-Math.pow(-2*a.progress+2,3)/2;
-                    const arcY = Math.sin(a.progress * Math.PI) * 0.7;
-                    a.mesh.position.x = a.startX + (a.endX-a.startX)*t;
-                    a.mesh.position.y = a.startY + (a.endY-a.startY)*t + arcY;
-                    a.mesh.position.z = a.startZ + (a.endZ-a.startZ)*t;
-                    if (a.mesh.rotation) a.mesh.rotation.y = a.progress * Math.PI * 2;
-                }
-            }
-            for (let i = capturedAnimations.length - 1; i >= 0; i--) {
-                const a = capturedAnimations[i]; a.progress += 0.06;
-                if (a.progress >= 1) {
-                    capturedAnimations.splice(i, 1); scene.remove(a.mesh);
-                    if (a.onComplete) a.onComplete();
-                } else {
-                    const t = a.progress;
-                    a.mesh.position.y = a.startY - t*t*1.2;
-                    a.mesh.scale.setScalar(1 - t*0.8);
-                    a.mesh.rotation.x += 0.15; a.mesh.rotation.z += 0.1;
-                    a.mesh.traverse(child => {
-                        if (child.isMesh && child.material && child.material.emissive) {
-                            child.material.emissive.setHex(0xff2200);
-                            child.material.emissiveIntensity = t * 2;
-                        }
-                    });
-                }
-            }
-        }
-
-        // ==========================================
-        //  [Knight Special] กระโดดฟัน + ระเบิด
-        // ==========================================
-        let knightJumpAnimations = []; // { mesh, phase, ... }
-
-        // ระเบิดแฟลชที่ตำแหน่งศัตรู ก่อนถูกกำจัด
-        function spawnKnightExplosion(row, col, colorHex) {
-            const x = col - 3.5, z = row - 3.5, y = 0.3;
-
-            // วงแสงระเบิดซ้อน 3 วง
-            for (let ring = 0; ring < 3; ring++) {
-                const geo = new THREE.TorusGeometry(0.01, 0.06 - ring * 0.015, 8, 28);
-                const mat = new THREE.MeshStandardMaterial({
-                    color: ring === 0 ? 0xffffff : (ring === 1 ? colorHex : 0xff6600),
-                    emissive: ring === 0 ? 0xffffff : colorHex,
-                    emissiveIntensity: 4, transparent: true, opacity: 1
-                });
-                const torus = new THREE.Mesh(geo, mat);
-                torus.position.set(x, y + ring * 0.08, z);
-                torus.rotation.x = Math.PI / 2;
-                scene.add(torus);
-                particles.push({
-                    mesh: torus, vx: 0, vy: 0, vz: 0, vRotX: 0, vRotZ: 0,
-                    life: 1.0, decay: 0.055 + ring * 0.02, isRing: true, ringScale: 0.01
-                });
-            }
-
-            // แฟลชลูกไฟกลาง
-            const coreGeo = new THREE.SphereGeometry(0.12, 12, 10);
-            const coreMat = new THREE.MeshStandardMaterial({
-                color: 0xffffff, emissive: 0xffaa00, emissiveIntensity: 6,
-                transparent: true, opacity: 0.95
-            });
-            const core = new THREE.Mesh(coreGeo, coreMat);
-            core.position.set(x, y, z);
-            scene.add(core);
-            particles.push({ mesh: core, vx: 0, vy: 0.018, vz: 0, vRotX: 0, vRotZ: 0, life: 1.0, decay: 0.07 });
-
-            // เศษแตกกระจาย
-            const shardColors = [colorHex, 0xffffff, 0xff8800, 0xffdd00];
-            for (let i = 0; i < 22; i++) {
-                const size = 0.025 + Math.random() * 0.06;
-                const geo = Math.random() > 0.5
-                    ? new THREE.TetrahedronGeometry(size)
-                    : new THREE.BoxGeometry(size, size * 1.8, size * 0.5);
-                const mat = new THREE.MeshStandardMaterial({
-                    color: shardColors[i % shardColors.length],
-                    roughness: 0.1, metalness: 0.9,
-                    emissive: shardColors[i % shardColors.length], emissiveIntensity: 1.2
-                });
-                const shard = new THREE.Mesh(geo, mat);
-                shard.position.set(x, y, z);
-                const angle = (i / 22) * Math.PI * 2 + Math.random() * 0.5;
-                const speed = 1.8 + Math.random() * 2.8;
-                particles.push({
-                    mesh: shard,
-                    vx: Math.cos(angle) * speed * 0.04,
-                    vy: 0.12 + Math.random() * 0.14,
-                    vz: Math.sin(angle) * speed * 0.04,
-                    vRotX: (Math.random() - 0.5) * 0.4,
-                    vRotZ: (Math.random() - 0.5) * 0.4,
-                    life: 1.0, decay: 0.022 + Math.random() * 0.02
-                });
-                scene.add(shard);
-            }
-
-            // slash streak — เส้นฟ้าผ่า
-            for (let s = 0; s < 4; s++) {
-                const angle = s * Math.PI / 2 + Math.random() * 0.6;
-                const len = 0.18 + Math.random() * 0.18;
-                const slashGeo = new THREE.BoxGeometry(0.012, len, 0.008);
-                const slashMat = new THREE.MeshStandardMaterial({
-                    color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 5,
-                    transparent: true, opacity: 0.9
-                });
-                const slash = new THREE.Mesh(slashGeo, slashMat);
-                slash.position.set(x + Math.cos(angle) * 0.12, y + Math.random() * 0.2, z + Math.sin(angle) * 0.12);
-                slash.rotation.z = angle;
-                scene.add(slash);
-                particles.push({ mesh: slash, vx: Math.cos(angle) * 0.04, vy: 0.02, vz: Math.sin(angle) * 0.04, vRotX: 0, vRotZ: 0.18, life: 1.0, decay: 0.12 });
-            }
-        }
-
-        // Animation: อัศวินกระโดดสูง บินไปหา mid-point เหนือศัตรู ระเบิด แล้วลงจุดปลาย
-        function animateKnightSlash(mesh, enemyRow, enemyCol, endX, endY, endZ, onComplete) {
-            const startX = mesh.position.x;
-            const startZ = mesh.position.z;
-            const startY = mesh.userData.baseY !== undefined ? mesh.userData.baseY : mesh.position.y;
-
-            // ตำแหน่งศัตรู (จุดระเบิด)
-            const midX = enemyCol - 3.5;
-            const midZ = enemyRow - 3.5;
-            const peakY = startY + 1.6; // ความสูงสุดยอดก่อนลงฟัน
-            const midY = startY + 0.9;  // ความสูงขณะอยู่เหนือศัตรู
-
-            let phase = 0;       // 0=jump up, 1=dive to enemy, 2=explosion pause, 3=land
-            let progress = 0;
-            let exploded = false;
-
-            const isEnemyRed = boardState[enemyRow] && (boardState[enemyRow][enemyCol] === 1 || boardState[enemyRow][enemyCol] === 3);
-            const theme = THEMES[selectedTheme];
-            const explosionColor = isEnemyRed ? theme.pieceRed.color : theme.pieceBlue.color;
-
-            knightJumpAnimations.push({
-                mesh, phase, progress, exploded,
-                startX, startY, startZ,
-                midX, midY: peakY, midZ,
-                diveY: midY,
-                endX, endY, endZ,
-                enemyRow, enemyCol, explosionColor,
-                onComplete
-            });
-        }
-
-        function updateKnightJumpAnimations() {
-            for (let i = knightJumpAnimations.length - 1; i >= 0; i--) {
-                const a = knightJumpAnimations[i];
-                a.progress += 0.055;
-
-                if (a.phase === 0) {
-                    // Phase 0: กระโดดขึ้นสูง (ตั้งแต่ต้นทาง → peak บนศัตรู)
-                    const t = Math.min(a.progress, 1);
-                    const ease = 1 - Math.pow(1 - t, 2);
-                    a.mesh.position.x = a.startX + (a.midX - a.startX) * ease;
-                    a.mesh.position.z = a.startZ + (a.midZ - a.startZ) * ease;
-                    a.mesh.position.y = a.startY + (a.midY - a.startY) * Math.sin(t * Math.PI * 0.5);
-                    // เอียงตัวไปข้างหน้า
-                    a.mesh.rotation.x = -t * 0.5;
-                    if (t >= 1) { a.phase = 1; a.progress = 0; }
-
-                } else if (a.phase === 1) {
-                    // Phase 1: ดิ่งลงฟัน (peak → เหนือศัตรู)
-                    const t = Math.min(a.progress * 1.6, 1);
-                    const ease = t * t;
-                    a.mesh.position.x = a.midX;
-                    a.mesh.position.z = a.midZ;
-                    a.mesh.position.y = a.midY + (a.diveY - a.midY) * ease;
-                    a.mesh.rotation.x = -0.5 + t * 0.8; // หมุนกลับตั้ง
-                    if (t >= 1 && !a.exploded) {
-                        // ระเบิด!
-                        spawnKnightExplosion(a.enemyRow, a.enemyCol, a.explosionColor);
-                        SoundEffects.playCapture();
-                        a.exploded = true;
-                        a.phase = 2; a.progress = 0;
-                    }
-
-                } else if (a.phase === 2) {
-                    // Phase 2: หยุดชั่วคราว 0.3s (menacing pose)
-                    if (a.progress >= 0.35) { a.phase = 3; a.progress = 0; }
-
-                } else if (a.phase === 3) {
-                    // Phase 3: ลงจอดที่ปลายทาง
-                    const t = Math.min(a.progress * 1.4, 1);
-                    const ease = 1 - Math.pow(1 - t, 3);
-                    a.mesh.position.x = a.midX + (a.endX - a.midX) * ease;
-                    a.mesh.position.z = a.midZ + (a.endZ - a.midZ) * ease;
-                    a.mesh.position.y = a.diveY + (a.endY - a.diveY) * ease + Math.sin(t * Math.PI) * 0.25;
-                    a.mesh.rotation.x = a.mesh.rotation.x * (1 - ease); // คืนท่าตั้ง
-                    if (t >= 1) {
-                        a.mesh.position.set(a.endX, a.endY, a.endZ);
-                        a.mesh.rotation.x = 0;
-                        a.mesh.userData.baseY = a.endY;
-                        knightJumpAnimations.splice(i, 1);
-                        if (a.onComplete) a.onComplete();
-                    }
-                }
-            }
-        }
-        let onlineFriendsList = [];
-        let socket = { on() {}, emit() {}, connected: false, id: null };
-        function initSocket() {
-            if (typeof io === 'undefined') {
-                document.getElementById('server-status').innerText = '⚠️ offline mode';
-                return;
-            }
-            try {
-                const realSocket = io({ transports: ['websocket','polling'], upgrade: true });
-                socket = realSocket;
-                realSocket.on('connect', () => {
-                    document.getElementById('server-status').innerText = '🟢 เชื่อมต่อเซิร์ฟเวอร์สำเร็จแล้ว';
-                    document.getElementById('server-status').style.color = '#00ffcc';
-                    checkSavedPlayer();
-                });
-                realSocket.on('connect_error', () => {
-                    document.getElementById('server-status').innerText = '🟡 กำลังพยายามเชื่อมต่อ...';
-                    document.getElementById('server-status').style.color = '#f1c40f';
-                });
-                realSocket.on('disconnect', () => {
-                    document.getElementById('server-status').innerText = '🔴 ขาดการเชื่อมต่อ';
-                    document.getElementById('server-status').style.color = '#ff4d4d';
-                });
-                realSocket.on('updatePlayers', (list) => { onlineFriendsList = list; if (gameMode==='online') renderOnlineFriends(); });
-                realSocket.on('online-users', (list) => { onlineFriendsList = list; if (gameMode==='online') renderOnlineFriends(); });
-                realSocket.on('pieceMoved', (data) => { if (gameMode==='online') executeMove(data.sR,data.sC,data.eR,data.eC,data.result,false); });
-                realSocket.on('playerDisconnected', (data) => {
-                    if (gameMode==='online' && selectedFriend===data.username) {
-                        alert('⚠️ คู่แข่ง ['+data.username+'] ตัดการเชื่อมต่อ กลับสู่โหมดบอท AI');
-                        resetGame(); changeGameMode('bot');
-                    }
-                });
-                realSocket.on('incomingChallenge', (data) => {
-                    if (confirm('⚔️ คุณถูกท้าดวลโดย ['+data.challenger+'] จะรับหรือไม่?')) {
-                        selectedFriend = data.challenger;
-                        myRole = (data.challengerColor==='red') ? 'blue' : 'red';
-                        document.getElementById('game-mode-select').value = 'online';
-                        changeGameMode('online');
-                        realSocket.emit('acceptChallenge', {
-                            target: data.challenger,
-                            responder: localStorage.getItem('checkers_username'),
-                            responderColor: myRole
-                        });
-                        alert('🎮 คุณได้ฝั่ง ['+(myRole==='red'?'🔴 สีแดง':'🟤 สีน้ำตาล')+']');
-                        adjustCameraForDevice(); updateTitleText();
-                        if (!document.getElementById('control-panel').classList.contains('collapsed')) toggleMainPanel();
-                    }
-                });
-                realSocket.on('challengeAccepted', (data) => {
-                    myRole = (data.responderColor==='red') ? 'blue' : 'red';
-                    alert('🎉 ['+data.responder+'] ตอบรับแล้ว! คุณได้ฝั่ง ['+(myRole==='red'?'🔴 สีแดง':'🟤 สีน้ำตาล')+']');
-                    adjustCameraForDevice(); updateTitleText(); resetGame();
-                });
-            } catch(e) {
-                console.error('Socket init failed:', e);
-                document.getElementById('server-status').innerText = '⚠️ เชื่อมต่อไม่ได้';
-            }
-        }
-        setTimeout(initSocket, 100);
-
-        // Initialize board tiles
-        for (let r = 0; r < BOARD_SIZE; r++) {
-            for (let c = 0; c < BOARD_SIZE; c++) {
-                const isDark = (r + c) % 2 === 1;
-                const tileGeo = new THREE.BoxGeometry(1, 0.15, 1);
-                const tileMat = new THREE.MeshStandardMaterial({ roughness: 0.5, metalness: 0.05 });
-                const tile = new THREE.Mesh(tileGeo, tileMat);
-                tile.position.set(c - 3.5, 0, r - 3.5);
-                tile.userData = { row: r, col: c, isDarkSkin: isDark, baseEmissive: 0x000000 };
-                tile.receiveShadow = true;
-                scene.add(tile); tiles3DObjects.push(tile);
-            }
-        }
-
-        // กรอบกระดาน
-        const borderMat = new THREE.MeshStandardMaterial({ color: 0x1f0e06, roughness: 0.5, metalness: 0.1 });
-        const bG1 = new THREE.BoxGeometry(8.2, 0.2, 0.1); const bG2 = new THREE.BoxGeometry(0.1, 0.2, 8.2);
-        [[bG1,0,0.025,4.05],[bG1,0,0.025,-4.05],[bG2,-4.05,0.025,0],[bG2,4.05,0.025,0]].forEach(([g,x,y,z]) => {
-            const b = new THREE.Mesh(g, borderMat); b.position.set(x,y,z);
-            b.castShadow = true; b.receiveShadow = true; scene.add(b);
-        });
-
-        // ==========================================
-        //  applyTheme — รองรับธีมทั้งหมด
-        // ==========================================
-        function applyTheme(themeName) {
-            selectedTheme = themeName;
-            const theme = THEMES[themeName];
-            document.body.style.backgroundColor = '#' + theme.bg.toString(16).padStart(6,'0');
-            scene.background.setHex(theme.bg);
-
-            tiles3DObjects.forEach(tile => {
-                const isDark = tile.userData.isDarkSkin;
-                const config = isDark ? theme.dark : theme.light;
-
-                if (themeName === 'royalwood' || themeName === 'knight') {
-                    tile.material.map = isDark ? darkWoodTexture : lightWoodTexture;
-                    tile.material.color.setHex(0xffffff);
-                } else if (themeName === 'chess') {
-                    tile.material.map = isDark ? chessBoardDarkTex : chessBoardLightTex;
-                    tile.material.color.setHex(0xffffff);
-                } else if (themeName === 'knight') {
-                    // กระดานหินมืด — เส้นแสงขอบ
-                    tile.material.map = null;
-                    tile.material.color.setHex(config.color);
-                } else {
-                    tile.material.map = null;
-                    tile.material.color.setHex(config.color);
-                }
-
-                tile.material.roughness = config.roughness;
-                tile.material.metalness = config.metalness;
-                const baseEmissive = config.emissive || 0x000000;
-                tile.material.emissive.setHex(baseEmissive);
-                tile.userData.baseEmissive = baseEmissive;
-                tile.material.needsUpdate = true;
-            });
-
-            // ปรับแสงตามธีม
-            if (themeName === 'royalwood') {
-                dirLight.color.setHex(0xfff5e6); dirLight.intensity = 1.10;
-                rimLight.color.setHex(0xddeeff); rimLight.intensity = 0.50;
-            } else if (themeName === 'obsidian') {
-                dirLight.color.setHex(0xddeeff); dirLight.intensity = 0.7;
-                rimLight.color.setHex(0xeef4ff); rimLight.intensity = 0.32;
-            } else if (themeName === 'chess') {
-                dirLight.color.setHex(0xfff8ee); dirLight.intensity = 0.95;
-                rimLight.color.setHex(0xeef0ff); rimLight.intensity = 0.42;
-            } else if (themeName === 'knight') {
-                dirLight.color.setHex(0xfff5e6); dirLight.intensity = 1.10;
-                rimLight.color.setHex(0xeef0ff); rimLight.intensity = 0.50;
-            } else {
-                dirLight.color.setHex(0xffffff); dirLight.intensity = 0.75;
-                rimLight.color.setHex(0xddeeff); rimLight.intensity = 0.30;
-            }
-
-            drawPieces();
-            resetTileHighlights();
-        }
-
-        function resetTileHighlights() {
-            tiles3DObjects.forEach(tile => { tile.material.emissive.setHex(tile.userData.baseEmissive || 0x000000); });
-            clearAllPieceBlinks();
-        }
-
-        function highlightMandatoryPieces() {
-            clearAllPieceBlinks();
-            if (!selectedPiece && hasAnyJumpAvailable(currentTurn)) {
-                const targetValues = currentTurn === 1 ? [1,3] : [2,4];
-                for (let r = 0; r < 8; r++) {
-                    for (let c = 0; c < 8; c++) {
-                        if (targetValues.includes(boardState[r][c])) {
-                            let canJump = false;
-                            for (let tr = 0; tr < 8 && !canJump; tr++) for (let tc = 0; tc < 8 && !canJump; tc++) {
-                                const res = checkMove(r,c,tr,tc); if (res.valid && res.type==='jump') canJump = true;
-                            }
-                            if (canJump) {
-                                const tile = tiles3DObjects.find(t => t.userData.row===r && t.userData.col===c);
-                                if (tile) tile.material.emissive.setHex(0xcc2200);
-                                const pMesh = piece3DObjects.find(p => p.userData.boardRow===r && p.userData.boardCol===c);
-                                if (pMesh) setPieceBlinkState(pMesh, 'mandatory');
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        function highlightValidMoves() {
-            resetTileHighlights();
-            if (!selectedPiece) return;
-            const mustJump = !comboPiece && hasAnyJumpAvailable(currentTurn);
-            const selectedTile = tiles3DObjects.find(t => t.userData.row===selectedPiece.row && t.userData.col===selectedPiece.col);
-            if (selectedTile) selectedTile.material.emissive.setHex(0xff8800);
-            let hasValidMove = false;
-            for (let tr = 0; tr < BOARD_SIZE; tr++) {
-                for (let tc = 0; tc < BOARD_SIZE; tc++) {
-                    const res = checkMove(selectedPiece.row, selectedPiece.col, tr, tc);
-                    if (res.valid) {
-                        if (comboPiece && res.type!=='jump') continue;
-                        if (mustJump && res.type!=='jump') continue;
-                        const targetTile = tiles3DObjects.find(t => t.userData.row===tr && t.userData.col===tc);
-                        if (targetTile) { targetTile.material.emissive.setHex(res.type==='jump'?0xff3300:0x00bb33); hasValidMove = true; }
-                    }
-                }
-            }
-            if (mustJump && !hasValidMove && !comboPiece && selectedTile) selectedTile.material.emissive.setHex(0x880000);
-        }
-
-        // ==========================================
-        //  Particles
-        // ==========================================
-        function spawnEatParticles(row, col, colorHex) {
-            const x = col - 3.5, z = row - 3.5, y = 0.15;
-            for (let i = 0; i < 28; i++) {
-                const size = 0.03 + Math.random() * 0.07;
-                const geo = i < 10 ? new THREE.SphereGeometry(size,6,6) : new THREE.BoxGeometry(size,size,size);
-                const mat = new THREE.MeshStandardMaterial({
-                    color: i%3===0 ? 0xffd700 : colorHex, roughness:0.05, metalness:0.9,
-                    emissive: i%3===0 ? 0xffd700 : colorHex, emissiveIntensity:1.5
-                });
-                const mesh = new THREE.Mesh(geo, mat); mesh.position.set(x, y, z);
-                const angle = Math.random()*Math.PI*2, speed = 1.5+Math.random()*3;
-                particles.push({
-                    mesh, vx:Math.cos(angle)*speed*0.04, vy:0.08+Math.random()*0.18,
-                    vz:Math.sin(angle)*speed*0.04, vRotX:(Math.random()-0.5)*0.3,
-                    vRotZ:(Math.random()-0.5)*0.3, life:1.0, decay:0.018+Math.random()*0.022
-                });
-                scene.add(mesh);
-            }
-            const ring = new THREE.Mesh(
-                new THREE.TorusGeometry(0.01,0.04,6,24),
-                new THREE.MeshStandardMaterial({color:colorHex,emissive:colorHex,emissiveIntensity:3,transparent:true,opacity:0.9})
-            );
-            ring.position.set(x,y+0.05,z); ring.rotation.x = Math.PI/2; scene.add(ring);
-            particles.push({ mesh:ring, vx:0,vy:0,vz:0,vRotX:0,vRotZ:0, life:1.0, decay:0.04, isRing:true, ringScale:0.01 });
-        }
-
-        function updateParticles() {
-            for (let i = particles.length - 1; i >= 0; i--) {
-                const p = particles[i];
-                if (p.isRing) {
-                    p.ringScale += 0.07; p.life -= p.decay;
-                    p.mesh.scale.setScalar(p.ringScale); p.mesh.material.opacity = p.life*0.9;
-                    if (p.life<=0) { scene.remove(p.mesh); p.mesh.geometry.dispose(); p.mesh.material.dispose(); particles.splice(i,1); }
-                    continue;
-                }
-                p.mesh.position.x += p.vx; p.mesh.position.y += p.vy; p.mesh.position.z += p.vz;
-                if (p.vRotX) p.mesh.rotation.x += p.vRotX;
-                if (p.vRotZ) p.mesh.rotation.z += p.vRotZ;
-                p.vy -= 0.007; p.life -= p.decay;
-                if (p.life<=0) { scene.remove(p.mesh); p.mesh.geometry.dispose(); p.mesh.material.dispose(); particles.splice(i,1); }
-                else { p.mesh.scale.setScalar(p.life*0.9+0.1); if (p.mesh.material.emissiveIntensity!==undefined) p.mesh.material.emissiveIntensity=p.life*1.5; }
-            }
-        }
-
-        // ==========================================
-        //  Crown Models
-        // ==========================================
-        function createGoldenCrown() {
-            const group = new THREE.Group();
-            const goldMat = new THREE.MeshStandardMaterial({ color:0xffd700, roughness:0.08, metalness:0.95, emissive:0x2b2000 });
-            const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.26,0.08,32), goldMat);
-            ring.position.y = 0.12; group.add(ring);
-            for (let i = 0; i < 8; i++) {
-                const angle = (i/8)*Math.PI*2;
-                const x = Math.cos(angle)*0.22, z = Math.sin(angle)*0.22;
-                const spike = new THREE.Mesh(new THREE.ConeGeometry(0.035,0.24,8), goldMat);
-                spike.position.set(x,0.22,z); spike.rotation.y=-angle; spike.rotation.z=0.28;
-                const bead = new THREE.Mesh(new THREE.SphereGeometry(0.035,12,12), goldMat);
-                bead.position.set(x*1.25,0.32,z*1.25);
-                group.add(spike); group.add(bead);
-            }
-            const torus = new THREE.Mesh(new THREE.TorusGeometry(0.18,0.03,8,24), goldMat);
-            torus.rotation.x = Math.PI/2; torus.position.y = 0.14; group.add(torus);
-            return group;
-        }
-
-        // ===== NEW: มงกุฎสำหรับธีม Chess =====
-        function createChessCrown(isWhite) {
-            const group = new THREE.Group();
-            const mat = new THREE.MeshStandardMaterial({
-                color: isWhite ? 0xffd700 : 0xb8c0cc,
-                roughness: isWhite ? 0.07 : 0.10,
-                metalness: 0.96,
-                emissive: isWhite ? 0x1a1000 : 0x080808
-            });
-            const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.26,0.08,32), mat);
-            ring.position.y = 0.12; group.add(ring);
-            for (let i = 0; i < 8; i++) {
-                const angle = (i/8)*Math.PI*2;
-                const x = Math.cos(angle)*0.22, z = Math.sin(angle)*0.22;
-                const spike = new THREE.Mesh(new THREE.ConeGeometry(0.035,0.24,8), mat);
-                spike.position.set(x,0.22,z); spike.rotation.y=-angle; spike.rotation.z=0.28;
-                const bead = new THREE.Mesh(new THREE.SphereGeometry(0.035,12,12), mat);
-                bead.position.set(x*1.25,0.32,z*1.25);
-                group.add(spike); group.add(bead);
-            }
-            const torus = new THREE.Mesh(new THREE.TorusGeometry(0.18,0.03,8,24), mat);
-            torus.rotation.x = Math.PI/2; torus.position.y = 0.14; group.add(torus);
-            return group;
-        }
-
-        // ==========================================
-        //  [NEW] หุ่นอัศวิน 3D ยืนเต็มตัว — Knight Battle Theme
-        // ==========================================
-        function createKnightFigure(colorHex, emissiveHex, isKingPiece) {
-            const group = new THREE.Group();
-
-            const mat = new THREE.MeshStandardMaterial({
-                color: colorHex, roughness: 0.18, metalness: 0.82,
-                emissive: emissiveHex, emissiveIntensity: 0.25
-            });
-            const matDark = new THREE.MeshStandardMaterial({
-                color: colorHex, roughness: 0.28, metalness: 0.65,
-                emissive: emissiveHex, emissiveIntensity: 0.10
-            });
-            const matVisor = new THREE.MeshStandardMaterial({
-                color: 0x111111, roughness: 0.05, metalness: 0.95,
-                emissive: colorHex, emissiveIntensity: 0.55
-            });
-
-            // ─── ขา (legs) — เท้าอยู่ที่ Y=0 local, ทุกอย่างยกขึ้น +0.24 ───
-            [-0.09, 0.09].forEach(xOff => {
-                // ต้นขา (center at 0.35)
-                const thigh = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.07, 0.22, 10), mat);
-                thigh.position.set(xOff, 0.35, 0);
-                group.add(thigh);
-                // หน้าแข้ง (center at 0.14)
-                const shin = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.065, 0.20, 10), mat);
-                shin.position.set(xOff * 1.05, 0.14, 0.015);
-                shin.rotation.x = 0.08;
-                group.add(shin);
-                // รองเท้าเหล็ก — ด้านล่างของบูตอยู่ที่ Y≈0 (center 0.03, height 0.06)
-                const boot = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.06, 0.14), mat);
-                boot.position.set(xOff, 0.03, 0.02);
-                group.add(boot);
-            });
-
-            // ─── เอว/สะโพก (hip plate) ───
-            const hip = new THREE.Mesh(new THREE.CylinderGeometry(0.155, 0.145, 0.08, 14), mat);
-            hip.position.set(0, 0.475, 0);
-            group.add(hip);
-
-            // ─── ลำตัว (torso/breastplate) ───
-            const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.155, 0.26, 14), mat);
-            torso.position.set(0, 0.62, 0);
-            group.add(torso);
-
-            // แผ่นอกสลักลาย
-            const chestPlate = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.18, 0.06), mat);
-            chestPlate.position.set(0, 0.64, 0.10);
-            group.add(chestPlate);
-
-            // ─── ไหล่ (pauldrons) ───
-            [-0.19, 0.19].forEach(xOff => {
-                const pauldron = new THREE.Mesh(new THREE.SphereGeometry(0.09, 12, 10), mat);
-                pauldron.scale.set(1, 0.75, 0.85);
-                pauldron.position.set(xOff, 0.72, 0);
-                group.add(pauldron);
-                // แขนบน
-                const upperArm = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.065, 0.18, 10), mat);
-                upperArm.position.set(xOff * 1.08, 0.59, 0);
-                upperArm.rotation.z = xOff > 0 ? 0.25 : -0.25;
-                group.add(upperArm);
-            });
-
-            // ─── แขนซ้าย — ถือโล่ ───
-            const foreArmL = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.055, 0.16, 10), mat);
-            foreArmL.position.set(-0.225, 0.48, 0.04);
-            foreArmL.rotation.z = 0.5;
-            foreArmL.rotation.x = -0.3;
-            group.add(foreArmL);
-
-            // โล่ (shield)
-            const shieldGrp = new THREE.Group();
-            const shieldBody = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.24, 0.035), mat);
-            shieldGrp.add(shieldBody);
-            // ขอบโล่
-            const shieldRim = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.26, 0.02), matDark);
-            shieldRim.position.z = -0.025;
-            shieldGrp.add(shieldRim);
-            // ดาวกลางโล่
-            const shieldStar = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6), matVisor);
-            shieldStar.position.z = 0.03;
-            shieldGrp.add(shieldStar);
-            shieldGrp.position.set(-0.30, 0.56, 0.12);
-            shieldGrp.rotation.y = 0.35;
-            shieldGrp.rotation.z = 0.10;
-            group.add(shieldGrp);
-
-            // ─── แขนขวา — ถือดาบ/ขวาน ───
-            const foreArmR = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.055, 0.16, 10), mat);
-            foreArmR.position.set(0.225, 0.52, 0.04);
-            foreArmR.rotation.z = -0.45;
-            foreArmR.rotation.x = -0.15;
-            group.add(foreArmR);
-
-            if (!isKingPiece) {
-                // ดาบ (sword) สำหรับหมากธรรมดา
-                const swordGrp = new THREE.Group();
-                // ใบดาบ
-                const blade = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.42, 0.008), new THREE.MeshStandardMaterial({
-                    color: 0xddeeff, roughness: 0.05, metalness: 0.98, emissive: 0x445566
-                }));
-                blade.position.y = 0.21;
-                swordGrp.add(blade);
-                // ด้ามดาบ (crossguard)
-                const guard = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.022, 0.022), mat);
-                guard.position.y = 0.01;
-                swordGrp.add(guard);
-                // กิ๊บด้ามจับ
-                const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.10, 8), matDark);
-                grip.position.y = -0.06;
-                swordGrp.add(grip);
-                swordGrp.position.set(0.34, 0.64, 0.08);
-                swordGrp.rotation.z = -0.20;
-                swordGrp.rotation.x = 0.10;
-                group.add(swordGrp);
-            } else {
-                // ขวานสองคม (battle axe) สำหรับขุน
-                const axeGrp = new THREE.Group();
-                // ด้ามขวาน
-                const haft = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.44, 8), matDark);
-                haft.position.y = 0.22;
-                axeGrp.add(haft);
-                // หัวขวาน
-                [-0.06, 0.06].forEach(yOff => {
-                    const axeHead = new THREE.Mesh(new THREE.CylinderGeometry(0.002, 0.09, 0.06, 6), mat);
-                    axeHead.rotation.z = Math.PI / 2;
-                    axeHead.rotation.y = Math.PI / 6;
-                    axeHead.position.set(0.02, 0.40 + yOff, 0);
-                    axeGrp.add(axeHead);
-                });
-                axeGrp.position.set(0.34, 0.60, 0.08);
-                axeGrp.rotation.z = -0.18;
-                group.add(axeGrp);
-            }
-
-            // ─── คอ ───
-            const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 0.08, 12), mat);
-            neck.position.set(0, 0.78, 0);
-            group.add(neck);
-
-            // ─── หัวเกราะ (helmet) ───
-            const helmetBase = new THREE.Mesh(new THREE.SphereGeometry(0.115, 16, 14), mat);
-            helmetBase.scale.set(1, 1.08, 0.96);
-            helmetBase.position.set(0, 0.90, 0);
-            group.add(helmetBase);
-
-            // ขอบหมวก
-            const helmBrim = new THREE.Mesh(new THREE.CylinderGeometry(0.128, 0.122, 0.025, 16), mat);
-            helmBrim.position.set(0, 0.825, 0);
-            group.add(helmBrim);
-
-            // หน้ากาก visor
-            const visor = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.065, 0.07), matVisor);
-            visor.position.set(0, 0.888, 0.085);
-            visor.rotation.x = -0.12;
-            group.add(visor);
-
-            // ช่องตาบนหน้ากาก
-            [-0.032, 0.032].forEach(xOff => {
-                const eyeSlit = new THREE.Mesh(new THREE.BoxGeometry(0.028, 0.014, 0.08), new THREE.MeshStandardMaterial({
-                    color: colorHex, roughness: 0.0, metalness: 0.0,
-                    emissive: colorHex, emissiveIntensity: 2.5
-                }));
-                eyeSlit.position.set(xOff, 0.895, 0.09);
-                group.add(eyeSlit);
-            });
-
-            // ยอดหมวก (plume/crest)
-            if (isKingPiece) {
-                // ขนนกสูง
-                const plumeGeo = new THREE.CylinderGeometry(0.012, 0.025, 0.22, 8);
-                const plume = new THREE.Mesh(plumeGeo, new THREE.MeshStandardMaterial({
-                    color: colorHex, roughness: 0.6, metalness: 0.1,
-                    emissive: colorHex, emissiveIntensity: 0.5
-                }));
-                plume.position.set(0, 1.04, -0.02);
-                group.add(plume);
-                // แถบขวางบนยอดหมวก
-                const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.022, 0.022, 0.20), mat);
-                ridge.position.set(0, 0.995, -0.02);
-                group.add(ridge);
-            } else {
-                // เขาเล็กบนหมวก
-                const hornGeo = new THREE.ConeGeometry(0.018, 0.10, 8);
-                [-0.065, 0.065].forEach(xOff => {
-                    const horn = new THREE.Mesh(hornGeo, mat);
-                    horn.position.set(xOff, 1.015, -0.02);
-                    horn.rotation.z = xOff > 0 ? 0.22 : -0.22;
-                    group.add(horn);
-                });
-            }
-
-            // ─── ฐาน (base plate) ───
-            const base = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.28, 0.06, 20), matDark);
-            base.position.set(0, -0.03, 0);
-            group.add(base);
-
-            // scale รวมให้พอดีกระดาน
-            group.scale.setScalar(0.78);
-            // ยก group ขึ้นให้ฐานวางบนกระดาน (tile Y=0.075, ฐาน half-height = 0.06/2*0.78 = 0.023)
-            group.position.y = 0.075 + 0.03 * 0.78; // boot bottom at y=0 local
-            return group;
-        }
-
-        // ==========================================
-        //  drawPieces — รองรับ Chess skin + หัวม้า 3D
-        // ==========================================
-
-        // ===== สร้างหัวม้า 3D แบบ procedural (chess knight style) =====
-        function createHorseHead(matColor, roughness, metalness, emissiveHex) {
-            const group = new THREE.Group();
-            const mat = new THREE.MeshStandardMaterial({
-                color: matColor, roughness: roughness, metalness: metalness,
-                emissive: emissiveHex, emissiveIntensity: 0.3
-            });
-            const matDark = new THREE.MeshStandardMaterial({
-                color: matColor, roughness: roughness + 0.1, metalness: metalness * 0.6,
-                emissive: emissiveHex, emissiveIntensity: 0.1
-            });
-
-            // ฐานคอ (neck base) — ทรงกระบอกเรียว
-            const neckBase = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 0.22, 20), mat);
-            neckBase.position.set(0, 0.11, 0);
-            group.add(neckBase);
-
-            // คอเอียง (angled neck shaft)
-            const neckGeo = new THREE.CylinderGeometry(0.16, 0.22, 0.30, 16);
-            const neck = new THREE.Mesh(neckGeo, mat);
-            neck.position.set(0.04, 0.32, -0.04);
-            neck.rotation.z = -0.22;
-            neck.rotation.x = 0.10;
-            group.add(neck);
-
-            // ลำหัว (head body) — ellipsoid จาก SphereGeometry scale
-            const headBody = new THREE.Mesh(new THREE.SphereGeometry(0.20, 20, 14), mat);
-            headBody.scale.set(0.82, 1.05, 0.72);
-            headBody.position.set(0.10, 0.52, -0.04);
-            group.add(headBody);
-
-            // ส่วนจมูก/ปาก (snout) — กระบอกแบน
-            const snout = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.13, 0.18, 14), mat);
-            snout.rotation.z = Math.PI / 2;
-            snout.rotation.y = 0.15;
-            snout.position.set(0.28, 0.44, -0.02);
-            group.add(snout);
-
-            // รูจมูก (nostril) x2
-            const nostrilGeo = new THREE.SphereGeometry(0.035, 8, 6);
-            [-0.06, 0.06].forEach(oz => {
-                const n = new THREE.Mesh(nostrilGeo, matDark);
-                n.position.set(0.36, 0.41, oz);
-                group.add(n);
-            });
-
-            // หู (ears) x2 — กรวยแหลมเล็ก
-            const earGeo = new THREE.ConeGeometry(0.055, 0.14, 8);
-            [[-0.07, 0.70, -0.08, -0.25], [0.07, 0.70, -0.08, 0.25]].forEach(([ex, ey, ez, rz]) => {
-                const ear = new THREE.Mesh(earGeo, mat);
-                ear.position.set(ex + 0.10, ey, ez);
-                ear.rotation.z = rz;
-                ear.rotation.x = -0.20;
-                group.add(ear);
-            });
-
-            // ตา (eyes) x2 — sphere เล็ก สีเข้มขึ้น
-            const eyeMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.05, metalness: 0.8 });
-            const eyeGeo = new THREE.SphereGeometry(0.045, 10, 8);
-            [[-0.10, 0.58, 0.15], [-0.10, 0.58, -0.15]].forEach(([ex, ey, ez]) => {
-                const eye = new THREE.Mesh(eyeGeo, eyeMat);
-                eye.position.set(ex + 0.10, ey, ez);
-                group.add(eye);
-            });
-
-            // แผงคอ (mane) — แผ่นบางซ้อน 4 ชั้น
-            const maneMat = new THREE.MeshStandardMaterial({
-                color: matColor, roughness: roughness + 0.05, metalness: metalness * 0.8,
-                emissive: emissiveHex, emissiveIntensity: 0.2, side: THREE.DoubleSide
-            });
-            for (let i = 0; i < 5; i++) {
-                const mane = new THREE.Mesh(new THREE.PlaneGeometry(0.14, 0.26), maneMat);
-                mane.position.set(-0.02 + i * 0.01, 0.52 - i * 0.04, -0.01);
-                mane.rotation.y = -0.18;
-                mane.rotation.z = 0.30 + i * 0.08;
-                group.add(mane);
-            }
-
-            // หมวก/ยอดที่หัว (crest bump)
-            const crest = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), mat);
-            crest.scale.set(0.7, 1.3, 0.55);
-            crest.position.set(0.02, 0.73, -0.06);
-            group.add(crest);
-
-            // scale ลงให้พอดีกระดาน — ปรับขนาดรวม
-            group.scale.setScalar(0.82);
-            group.position.y = 0.06; // ยกขึ้นเล็กน้อยจากฐาน
-
-            return group;
-        }
-
-        function drawPieces() {
-            blinkMeshMap.clear();
-            piece3DObjects.forEach(p => scene.remove(p));
-            piece3DObjects = [];
-            const theme = THEMES[selectedTheme];
-
-            for (let r = 0; r < BOARD_SIZE; r++) {
-                for (let c = 0; c < BOARD_SIZE; c++) {
-                    const val = boardState[r][c];
-                    if (val === 0) continue;
-
-                    let pieceMesh;
-                    const isRed  = (val === 1 || val === 3);
-                    const isKing = (val === 3 || val === 4);
-
-                    if (selectedTheme === 'chess') {
-                        // ===== Chess: หัวม้า 3D ทั้งสองฝ่าย =====
-                        const matConfig = isRed ? theme.pieceRed : theme.pieceBlue;
-
-                        if (!isKing) {
-                            pieceMesh = createHorseHead(
-                                matConfig.color, matConfig.roughness,
-                                matConfig.metalness, matConfig.emissive || 0x000000
-                            );
-                            if (!isRed) pieceMesh.rotation.y = Math.PI;
-                            pieceMesh.position.set(c - 3.5, 0, r - 3.5);
-                        } else {
-                            const group = new THREE.Group();
-                            const horseGroup = createHorseHead(
-                                matConfig.color, matConfig.roughness,
-                                matConfig.metalness, matConfig.emissive || 0x000000
-                            );
-                            if (!isRed) horseGroup.rotation.y = Math.PI;
-                            group.add(horseGroup);
-                            const crown = createChessCrown(isRed);
-                            crown.position.y = 0.75; crown.scale.setScalar(0.60);
-                            group.add(crown);
-                            pieceMesh = group;
-                            pieceMesh.position.set(c - 3.5, 0, r - 3.5);
-                        }
-
-                    } else if (selectedTheme === 'knight') {
-                        // ===== Knight Battle: หุ่นอัศวินยืนเต็มตัว =====
-                        const matConfig = isRed ? theme.pieceRed : theme.pieceBlue;
-                        pieceMesh = createKnightFigure(matConfig.color, matConfig.emissive || 0x000000, isKing);
-                        // ฝ่ายน้ำเงินหันหน้าเข้าหาฝ่ายเหลือง
-                        if (!isRed) pieceMesh.rotation.y = Math.PI;
-                        pieceMesh.position.set(c - 3.5, 0, r - 3.5); // Y=0: group.position.y จัดตำแหน่งเองแล้ว
-
-                    } else {
-                        // ===== ธีมอื่น: ทรงกระบอกแบน =====
-                        let sideMat, topMat;
-                        if (selectedTheme === 'royalwood') {
-                            const matConfig = isRed ? theme.pieceRed : theme.pieceBlue;
-                            sideMat = new THREE.MeshStandardMaterial({
-                                color: matConfig.color,
-                                roughness: matConfig.roughness,
-                                metalness: matConfig.metalness
-                            });
-                            const carvingTex = isRed ? pieceRedCarvingTexture : pieceBlueCarvingTexture;
-                            topMat = new THREE.MeshStandardMaterial({
-                                map: carvingTex,
-                                roughness: matConfig.roughness - 0.05,
-                                metalness: matConfig.metalness
-                            });
-                        } else {
-                            const matConfig = isRed ? theme.pieceRed : theme.pieceBlue;
-                            sideMat = new THREE.MeshStandardMaterial(matConfig);
-                            topMat = sideMat;
-                        }
-
-                        const pieceGeo = new THREE.CylinderGeometry(0.35, 0.35, 0.15, 32);
-                        const materials = [sideMat, topMat, sideMat];
-
-                        if (!isKing) {
-                            pieceMesh = new THREE.Mesh(pieceGeo, materials);
-                            pieceMesh.position.set(c - 3.5, 0.075, r - 3.5);
-                        } else {
-                            const group = new THREE.Group();
-                            const baseCylinder = new THREE.Mesh(pieceGeo, materials);
-                            baseCylinder.position.y = 0.075; group.add(baseCylinder);
-                            const crown = createGoldenCrown();
-                            group.add(crown);
-                            pieceMesh = group;
-                            pieceMesh.position.set(c - 3.5, 0, r - 3.5);
-                        }
-                    }
-
-                    pieceMesh.userData.boardRow = r;
-                    pieceMesh.userData.boardCol = c;
-                    pieceMesh.userData.baseY = pieceMesh.position.y;
-                    pieceMesh.castShadow = true; pieceMesh.receiveShadow = true;
-                    pieceMesh.traverse(child => { if (child.isMesh) { child.castShadow = true; child.receiveShadow = true; } });
-                    scene.add(pieceMesh); piece3DObjects.push(pieceMesh);
-                }
-            }
-        }
-
-        function updateNametags() {
-            const topTag = document.getElementById('nametag-top');
-            const bottomTag = document.getElementById('nametag-bottom');
-            let myName = localStorage.getItem('checkers_username') || "คุณ";
-            if (gameMode === 'bot') {
-                topTag.innerText = `ฝั่งตรงข้าม: บอท AI (${aiDifficulty.toUpperCase()})`;
-                topTag.style.borderColor = "#8a5a36"; bottomTag.innerText = `ตัวคุณ: ${myName}`; bottomTag.style.borderColor = "#a81414";
-            } else if (gameMode === 'local') {
-                topTag.innerText = `ฝั่งตรงข้าม: ผู้เล่นคนที่ 2`; topTag.style.borderColor = "#8a5a36";
-                bottomTag.innerText = `ตัวคุณ: ผู้เล่นคนที่ 1`; bottomTag.style.borderColor = "#a81414";
-            } else {
-                if (myRole==='red') {
-                    topTag.innerText = `ฝั่งตรงข้าม: ${selectedFriend||'คู่แข่งกำลังเชื่อมต่อ'}`; topTag.style.borderColor = "#8a5a36";
-                    bottomTag.innerText = `ตัวคุณ: ${myName} (คุณ)`; bottomTag.style.borderColor = "#a81414";
-                } else {
-                    topTag.innerText = `ฝั่งตรงข้าม: ${selectedFriend||'คู่แข่งกำลังเชื่อมต่อ'}`; topTag.style.borderColor = "#a81414";
-                    bottomTag.innerText = `ตัวคุณ: ${myName} (คุณ)`; bottomTag.style.borderColor = "#8a5a36";
-                }
-            }
-        }
-
-        function updateTitleText() {
-            const titleEl = document.getElementById('h2h-title');
-            if (gameMode==='online') titleEl.innerText = myRole==='red'?`🔴 คุณ VS 🟤 ${selectedFriend||'คู่แข่ง'}`:`🟤 คุณ VS 🔴 ${selectedFriend||'คู่แข่ง'}`;
-            else if (gameMode==='local') titleEl.innerText = "🔴 แดง VS 🟤 น้ำตาล";
-            else titleEl.innerText = myRole==='red'?"🔴 คุณ VS 🟤 บอท AI":"🟤 คุณ VS 🔴 บอท AI";
-            updateNametags();
-        }
-
-        function renderOnlineFriends() {
-            const selectBox = document.getElementById('friend-list-select'); if (!selectBox) return;
-            selectBox.innerHTML = '<option value="">-- กรุณาเลือกคู่แข่ง --</option>';
-            let mySavedName = localStorage.getItem('checkers_username')||''; let counter = 0;
-            onlineFriendsList.forEach(player => {
-                if (player.username && player.username!==mySavedName) {
-                    const opt = document.createElement('option'); opt.value = player.username;
-                    opt.innerText = `🔵 ${player.username}`; selectBox.appendChild(opt); counter++;
-                }
-            });
-            if (counter===0) selectBox.innerHTML = '<option value="">❌ ไม่มีผู้เล่นคนอื่นออนไลน์</option>';
-        }
-
-        function changeGameMode(mode) {
-            gameMode = mode;
-            const friendSection = document.getElementById('friend-select-section');
-            const aiDifficultyContainer = document.getElementById('ai-difficulty-container');
-            if (mode==='online') { friendSection.style.display='block'; aiDifficultyContainer.style.display='none'; renderOnlineFriends(); }
-            else if (mode==='local') { friendSection.style.display='none'; aiDifficultyContainer.style.display='none'; myRole='local'; }
-            else { friendSection.style.display='none'; aiDifficultyContainer.style.display='block'; myRole='red'; }
-            adjustCameraForDevice(); updateTitleText(); resetGame();
-        }
-
-        function changeAiDifficulty(diff) { aiDifficulty = diff; updateNametags(); }
-        function selectOnlineFriend(friendName) { selectedFriend = friendName; if (gameMode==='online'&&friendName!=="") updateTitleText(); }
-
-        (function() {
-            const panel = document.getElementById('control-panel'); if (!panel) return;
-            panel.addEventListener('wheel', e => e.stopPropagation(), {passive:true});
-            panel.addEventListener('touchstart', e => e.stopPropagation(), {passive:true});
-            panel.addEventListener('touchmove', e => e.stopPropagation(), {passive:true});
-        })();
-
-        function toggleMainPanel() {
-            const panel = document.getElementById('control-panel'); const btn = document.getElementById('panel-toggle-trigger');
-            panel.classList.toggle('collapsed');
-            if (panel.classList.contains('collapsed')) { btn.innerText='☰'; btn.style.left='14px'; btn.style.borderRadius='10px'; }
-            else { btn.innerText='✕'; const pw = Math.min(320,window.innerWidth); btn.style.left=(pw+8)+'px'; btn.style.borderRadius='0 10px 10px 0'; }
-        }
-        function openLoginPanel() {
-            const panel = document.getElementById('control-panel');
-            if (panel.classList.contains('collapsed')) toggleMainPanel();
-            const inputField = document.getElementById('username-input');
-            if (inputField && document.getElementById('auth-section').style.display!=='none') inputField.focus();
-        }
-
-        function startGameSession() {
-            if (gameMode==='online') {
-                if (selectedFriend==="") { alert("⚠️ โปรดเลือกคู่แข่งก่อน!"); return; }
-                const assignedColor = Math.random()<0.5?'red':'blue'; myRole = assignedColor;
-                adjustCameraForDevice(); updateTitleText();
-                if (socket && socket.connected) {
-                    socket.emit('challengePlayer', { target:selectedFriend, challenger:localStorage.getItem('checkers_username'), challengerColor:assignedColor });
-                } else { alert('⚠️ ไม่ได้เชื่อมต่อ server'); return; }
-                alert(`🎲 สีของคุณ: ${assignedColor==='red'?'🔴 สีแดง':'🟤 สีน้ำตาล'} กำลังรอ...`);
-            }
-            resetGame(); toggleMainPanel();
-        }
-
-        function resetGame() {
-            boardState = [[0,2,0,2,0,2,0,2],[2,0,2,0,2,0,2,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,0]];
-            currentTurn=1; selectedPiece=null; isGameOver=false; jumpCount=0; comboPiece=null; stopComboTimer();
-            document.getElementById('game-over-modal').style.display='none';
-            adjustCameraForDevice(); updateUI(false); drawPieces(); updateNametags(); resetTileHighlights();
-            if (gameMode==='bot'&&myRole==='blue') triggerBotAiIfNeeded();
-            else setTimeout(highlightMandatoryPieces, 200);
-        }
-
-        function restartFromModal() { stopFxAnimations(); if (gameMode==='online') startGameSession(); else resetGame(); }
-        function quitGame() {
-            stopFxAnimations(); document.getElementById('game-over-modal').style.display='none';
-            isGameOver = false;
-            boardState = [[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0]];
-            drawPieces(); resetTileHighlights();
-            document.getElementById('turn-display').innerText = 'กด "เริ่มเกมใหม่" เพื่อเล่นอีกครั้ง';
-            document.getElementById('turn-display').className = 'turn-blue';
-        }
-
-        function hasAnyJumpAvailable(turn) {
-            const tv = turn===1?[1,3]:[2,4];
-            for (let r=0;r<8;r++) for (let c=0;c<8;c++) if (tv.includes(boardState[r][c]))
-                for (let tr=0;tr<8;tr++) for (let tc=0;tc<8;tc++) { const res=checkMove(r,c,tr,tc); if (res.valid&&res.type==='jump') return true; }
-            return false;
-        }
-
-        function checkMove(startRow, startCol, endRow, endCol) {
-            const pType = boardState[startRow][startCol];
-            if (boardState[endRow][endCol]!==0) return {valid:false};
-            const rDiff=endRow-startRow, cDiff=endCol-startCol;
-            const absR=Math.abs(rDiff), absC=Math.abs(cDiff);
-            if (absR!==absC) return {valid:false};
-            if (pType===1||pType===2) {
-                if (pType===1&&rDiff>0) return {valid:false};
-                if (pType===2&&rDiff<0) return {valid:false};
-                if (absR===1) return {valid:true, type:'normal'};
-                if (absR===2) {
-                    const midR=startRow+rDiff/2, midC=startCol+cDiff/2;
-                    const enemyList = pType===1?[2,4]:[1,3];
-                    if (enemyList.includes(boardState[midR][midC])) return {valid:true, type:'jump', eat:[{r:midR,c:midC}]};
-                }
-            }
-            if (pType===3||pType===4) {
-                const stepR=rDiff/absR, stepC=cDiff/absC; let piecesInWay=[];
-                for (let i=1;i<absR;i++) {
-                    const currR=startRow+(i*stepR), currC=startCol+(i*stepC);
-                    if (boardState[currR][currC]!==0) piecesInWay.push({r:currR,c:currC,type:boardState[currR][currC]});
-                }
-                if (piecesInWay.length===0) return {valid:true, type:'normal'};
-                if (piecesInWay.length===1) {
-                    const enemyList=(pType===3)?[2,4]:[1,3];
-                    const distFromEnemy=Math.abs(endRow-piecesInWay[0].r);
-                    if (enemyList.includes(piecesInWay[0].type)&&distFromEnemy===1) return {valid:true, type:'jump', eat:[{r:piecesInWay[0].r,c:piecesInWay[0].c}]};
-                }
-            }
-            return {valid:false};
-        }
-
-        function hasMoreJumps(r,c) {
-            for (let tr=0;tr<8;tr++) for (let tc=0;tc<8;tc++) { const res=checkMove(r,c,tr,tc); if (res.valid&&res.type==='jump') return true; }
-            return false;
-        }
-
-        function startComboTimer() {
-            stopComboTimer(); comboTimeLeft=5.0;
-            const timerDiv=document.getElementById('combo-timer-display');
-            timerDiv.style.display='block';
-            timerDiv.innerText=`⚡ ต้องกินต่อ! เวลาที่เหลือ: ${comboTimeLeft.toFixed(1)} วินาที`;
-            comboTimer=setInterval(()=>{
-                comboTimeLeft-=0.1;
-                if (comboTimeLeft<=0) { stopComboTimer(); jumpCount=0; comboPiece=null; forceSwitchTurn(); }
-                else { timerDiv.innerText=`⚡ ต้องกินต่อ! เวลาที่เหลือ: ${comboTimeLeft.toFixed(1)} วินาที`; }
-            },100);
-        }
-        function stopComboTimer() { if (comboTimer) { clearInterval(comboTimer); comboTimer=null; } document.getElementById('combo-timer-display').style.display='none'; }
-        function forceSwitchTurn() {
-            currentTurn=currentTurn===1?2:1; selectedPiece=null;
-            updateUI(false); drawPieces(); triggerBotAiIfNeeded(); resetTileHighlights();
-            setTimeout(highlightMandatoryPieces,100);
-        }
-
-        function executeMove(sR,sC,eR,eC,result,shouldBroadcast=true) {
-            let pType=boardState[sR][sC]; boardState[eR][eC]=pType; boardState[sR][sC]=0;
-            if (gameMode==='online'&&shouldBroadcast&&socket&&socket.connected)
-                socket.emit('movePiece',{target:selectedFriend,sR,sC,eR,eC,result});
-            const theme=THEMES[selectedTheme];
-            const movingX=sC-3.5, movingZ=sR-3.5;
-            let movingMesh=piece3DObjects.find(p=>Math.abs(p.position.x-movingX)<0.1&&Math.abs(p.position.z-movingZ)<0.1);
-            const destX=eC-3.5, destY=movingMesh?movingMesh.position.y:0.075, destZ=eR-3.5;
-
-            const doAfterMove=()=>{
-                if (result.type==='jump') {
-                    const eatenVal=boardState[result.eat[0].r][result.eat[0].c];
-                    const isEatenRed=(eatenVal===1||eatenVal===3);
-                    const eatenColorHex=isEatenRed?theme.pieceRed.color:theme.pieceBlue.color;
-                    result.eat.forEach(enemy=>{
-                        boardState[enemy.r][enemy.c]=0;
-                        // Knight theme: ระเบิดและเสียงจะถูก trigger ใน animateKnightSlash แล้ว
-                        if (selectedTheme !== 'knight') spawnEatParticles(enemy.r,enemy.c,eatenColorHex);
-                        const enemyMesh=piece3DObjects.find(p=>p.userData.boardRow===enemy.r&&p.userData.boardCol===enemy.c);
-                        if (enemyMesh) animatePieceDrop(enemyMesh);
-                    });
-                    jumpCount++;
-                    if (selectedTheme !== 'knight') SoundEffects.playCapture();
-                } else { jumpCount=0; SoundEffects.playMove(); }
-
-                let justPromoted=false;
-                if (pType===1&&eR===0) { boardState[eR][eC]=3; justPromoted=true; }
-                if (pType===2&&eR===7) { boardState[eR][eC]=4; justPromoted=true; }
-                if (justPromoted) SoundEffects.playKing();
-
-                setTimeout(()=>{
-                    if (result.type==='jump'&&jumpCount<3&&!justPromoted&&hasMoreJumps(eR,eC)) {
-                        comboPiece={row:eR,col:eC}; selectedPiece=comboPiece;
-                        updateUI(true); drawPieces(); highlightValidMoves();
-                        const isBotTurn=(gameMode==='bot'&&((currentTurn===1&&myRole==='blue')||(currentTurn===2&&myRole==='red')));
-                        if (isBotTurn) setTimeout(()=>executeBotComboMove(eR,eC),600);
-                        else startComboTimer();
-                    } else { stopComboTimer(); jumpCount=0; comboPiece=null; endTurnProcess(); }
-                }, result.type==='jump'?300:50);
-            };
-
-            if (movingMesh) { movingMesh.userData.boardRow=eR; movingMesh.userData.boardCol=eC; }
-            if (movingMesh) {
-                // Knight theme + jump → ใช้ slash animation พิเศษ
-                if (selectedTheme === 'knight' && result.type === 'jump') {
-                    const enemyRow = result.eat[0].r;
-                    const enemyCol = result.eat[0].c;
-                    animateKnightSlash(movingMesh, enemyRow, enemyCol, destX, destY, destZ, doAfterMove);
-                } else {
-                    animatePieceMove(movingMesh, destX, destY, destZ, doAfterMove);
-                }
-                const sourceTile=tiles3DObjects.find(t=>t.userData.row===sR&&t.userData.col===sC);
-                if (sourceTile) { sourceTile.material.emissive.setHex(0x225511); setTimeout(()=>{ if (sourceTile) sourceTile.material.emissive.setHex(sourceTile.userData.baseEmissive||0); },400); }
-            } else doAfterMove();
-        }
-
-        function executeBotComboMove(r,c) {
-            let moves=[];
-            for (let tr=0;tr<8;tr++) for (let tc=0;tc<8;tc++) { const res=checkMove(r,c,tr,tc); if (res.valid&&res.type==='jump') moves.push({sR:r,sC:c,eR:tr,eC:tc,res}); }
-            if (moves.length>0) { const m=moves[Math.floor(Math.random()*moves.length)]; executeMove(m.sR,m.sC,m.eR,m.eC,m.res,true); }
-            else { stopComboTimer(); jumpCount=0; comboPiece=null; endTurnProcess(); }
-        }
-
-        // Stats
-        function loadStats() { try { const raw=localStorage.getItem('checkers_h2h_stats'); return raw?JSON.parse(raw):{};} catch(e){return{};} }
-        function saveStats(stats) { try { localStorage.setItem('checkers_h2h_stats',JSON.stringify(stats)); }catch(e){} }
-        function updateMatchStats(opponentName, didIWin) {
-            if (!opponentName) return;
-            const stats=loadStats();
-            if (!stats[opponentName]) stats[opponentName]={w:0,l:0,lastPlayed:''};
-            if (didIWin) stats[opponentName].w++; else stats[opponentName].l++;
-            stats[opponentName].lastPlayed=new Date().toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'});
-            saveStats(stats); renderStatsSection();
-        }
-        function clearAllStats() { if (!confirm('⚠️ ต้องการล้างสถิติทั้งหมด?')) return; localStorage.removeItem('checkers_h2h_stats'); renderStatsSection(); }
-        function renderStatsSection() {
-            const container=document.getElementById('stats-content'); if (!container) return;
-            const stats=loadStats(); const opponents=Object.keys(stats);
-            if (opponents.length===0) { container.innerHTML='<p class="stats-empty">ยังไม่มีข้อมูลสถิติ</p>'; return; }
-            let totalW=0,totalL=0;
-            opponents.forEach(op=>{totalW+=stats[op].w;totalL+=stats[op].l;});
-            const totalGames=totalW+totalL, overallWR=totalGames>0?Math.round((totalW/totalGames)*100):0;
-            let html='<div class="stats-summary">';
-            html+=`<div class="stats-summary-item"><span class="num" style="color:#2ecc71">${totalW}</span><span class="lbl">ชนะ</span></div>`;
-            html+=`<div class="stats-summary-item"><span class="num" style="color:#ff4757">${totalL}</span><span class="lbl">แพ้</span></div>`;
-            html+=`<div class="stats-summary-item"><span class="num" style="color:#f1c40f">${overallWR}%</span><span class="lbl">อัตราชนะ</span></div>`;
-            html+='</div>';
-            opponents.sort((a,b)=>(stats[b].w+stats[b].l)-(stats[a].w+stats[a].l));
-            html+='<table class="stats-table"><thead><tr><th>คู่แข่ง</th><th>ชนะ</th><th>แพ้</th><th>อัตรา</th><th>ล่าสุด</th></tr></thead><tbody>';
-            opponents.forEach(op=>{
-                const s=stats[op],games=s.w+s.l,wr=games>0?Math.round((s.w/games)*100):0;
-                const wrClass=wr>=60?'high':wr>=40?'mid':'low';
-                const icon=op.startsWith('บอท')?'🤖':'🌐';
-                html+=`<tr><td class="opponent-name" title="${op}">${icon} ${op}</td><td class="stats-win">${s.w}</td><td class="stats-loss">${s.l}</td><td><span class="stats-winrate ${wrClass}">${wr}%</span></td><td style="font-size:9px;color:#777">${s.lastPlayed||'-'}</td></tr>`;
-            });
-            html+='</tbody></table>';
-            container.innerHTML=html;
-        }
-        renderStatsSection();
-
-        function triggerGameOver(winnerColorName) {
-            isGameOver=true; stopComboTimer();
-            const name=winnerColorName==="สีแดง"?"ฝ่ายสีแดง":"ฝ่ายสีน้ำตาล";
-            document.getElementById('turn-display').innerText=`🏆 ${name} ชนะ!`;
-            document.getElementById('winner-text').innerText=`${name} ชนะ!`;
-            let didIWin=false;
-            if (gameMode==='local') didIWin=true;
-            else didIWin=(myRole==='red'&&winnerColorName==="สีแดง")||(myRole==='blue'&&winnerColorName==="สีน้ำตาล")||
-                (gameMode==='bot'&&((myRole==='red'&&winnerColorName==="สีแดง")||(myRole==='blue'&&winnerColorName==="สีน้ำตาล")));
-            const emojiEl=document.getElementById('modal-emoji'), titleEl=document.getElementById('modal-title');
-            if (gameMode==='local') { emojiEl.innerHTML='<span class="emoji-win">🏆</span>'; titleEl.innerText='จบการแข่งขัน!'; }
-            else if (didIWin) { emojiEl.innerHTML='<span class="emoji-win">🏆</span>'; titleEl.innerText='คุณชนะ!'; }
-            else { emojiEl.innerHTML='<span class="emoji-cry">😭</span>'; titleEl.innerText='คุณแพ้...'; }
-            document.getElementById('game-over-modal').style.display='flex';
-            drawPieces(); resetTileHighlights();
-            if (gameMode==='local'||didIWin) { SoundEffects.playWin(); startFireworks(); showApplause(); }
-            else { SoundEffects.playLose(); startCryAnim(); }
-            if (gameMode!=='local') {
-                let opponentName=gameMode==='online'?(selectedFriend||'ไม่ทราบชื่อ'):gameMode==='bot'?`บอท AI (${aiDifficulty})`:'';
-                if (opponentName) updateMatchStats(opponentName, didIWin);
-            }
-        }
-
-        function hasAnyMoveForTurn(turn) {
-            const vals=turn===1?[1,3]:[2,4];
-            for (let r=0;r<8;r++) for (let c=0;c<8;c++) if (vals.includes(boardState[r][c]))
-                for (let tr=0;tr<8;tr++) for (let tc=0;tc<8;tc++) if (checkMove(r,c,tr,tc).valid) return true;
-            return false;
-        }
-
-        function endTurnProcess() {
-            let rPieces=0, bPieces=0;
-            for (let r=0;r<8;r++) for (let c=0;c<8;c++) {
-                if (boardState[r][c]===1||boardState[r][c]===3) rPieces++;
-                if (boardState[r][c]===2||boardState[r][c]===4) bPieces++;
-            }
-            if (rPieces===0) { triggerGameOver("สีน้ำตาล"); return; }
-            if (bPieces===0) { triggerGameOver("สีแดง"); return; }
-            const nextTurn=currentTurn===1?2:1;
-            if (!hasAnyMoveForTurn(nextTurn)) {
-                triggerGameOver(nextTurn===1?"สีน้ำตาล":"สีแดง"); return;
-            }
-            currentTurn=nextTurn; selectedPiece=null;
-            updateUI(false); drawPieces(); triggerBotAiIfNeeded(); resetTileHighlights();
-            setTimeout(highlightMandatoryPieces,150);
-        }
-
-        function triggerBotAiIfNeeded() {
-            if (gameMode!=='bot'||isGameOver) return;
-            const isBotActive=(currentTurn===1&&myRole==='blue')||(currentTurn===2&&myRole==='red');
-            if (!isBotActive) return;
-            setTimeout(()=>{
-                let availableMoves=[], jumpMoves=[];
-                const targetValues=currentTurn===1?[1,3]:[2,4];
-                for (let r=0;r<8;r++) for (let c=0;c<8;c++) if (targetValues.includes(boardState[r][c]))
-                    for (let tr=0;tr<8;tr++) for (let tc=0;tc<8;tc++) {
-                        const res=checkMove(r,c,tr,tc);
-                        if (res.valid) { const mv={sR:r,sC:c,eR:tr,eC:tc,res}; availableMoves.push(mv); if (res.type==='jump') jumpMoves.push(mv); }
-                    }
-                if (availableMoves.length>0) {
-                    let selectedMove=null;
-                    if (jumpMoves.length>0) selectedMove=jumpMoves[Math.floor(Math.random()*jumpMoves.length)];
-                    else if (aiDifficulty==='hard') { const best=availableMoves.sort((a,b)=>currentTurn===1?a.eR-b.eR:b.eR-a.eR); selectedMove=best[0]; }
-                    else selectedMove=availableMoves[Math.floor(Math.random()*availableMoves.length)];
-                    if (selectedMove) executeMove(selectedMove.sR,selectedMove.sC,selectedMove.eR,selectedMove.eC,selectedMove.res,true);
-                }
-            },800);
-        }
-
-        const raycaster=new THREE.Raycaster(); const mouse=new THREE.Vector2();
-        function handleInteraction(clientX,clientY) {
-            if (isGameOver) return;
-            if (gameMode==='online') { if (currentTurn===1&&myRole!=='red') return; if (currentTurn===2&&myRole!=='blue') return; }
-            if (gameMode==='bot') { if (currentTurn===1&&myRole==='blue') return; if (currentTurn===2&&myRole==='red') return; }
-            const panel=document.getElementById('control-panel');
-            if (!panel.classList.contains('collapsed')&&clientX<panel.offsetWidth) return;
-            if (clientY>window.innerHeight-80&&clientX>window.innerWidth/2-120&&clientX<window.innerWidth/2+120) return;
-            if (clientX>window.innerWidth-80&&clientY>window.innerHeight-120) return;
-            mouse.x=(clientX/window.innerWidth)*2-1; mouse.y=-(clientY/window.innerHeight)*2+1;
-            raycaster.setFromCamera(mouse,camera);
-            const intersects=raycaster.intersectObjects(tiles3DObjects); if (intersects.length===0) return;
-            const targetRow=intersects[0].object.userData.row, targetCol=intersects[0].object.userData.col;
-            const pieceAtTarget=boardState[targetRow][targetCol];
-            if (comboPiece&&pieceAtTarget!==0) { if (targetRow!==comboPiece.row||targetCol!==comboPiece.col) return; }
-            if (pieceAtTarget!==0) {
-                const isRed=(pieceAtTarget===1||pieceAtTarget===3);
-                if ((currentTurn===1&&isRed)||(currentTurn===2&&!isRed)) {
-                    selectedPiece={row:targetRow,col:targetCol}; updateUI(true); highlightValidMoves(); SoundEffects.playClick();
-                    clearAllPieceBlinks();
-                    const selMesh=piece3DObjects.find(p=>p.userData.boardRow===targetRow&&p.userData.boardCol===targetCol);
-                    if (selMesh) setPieceBlinkState(selMesh,'selected');
-                }
-            } else if (selectedPiece) {
-                const result=checkMove(selectedPiece.row,selectedPiece.col,targetRow,targetCol);
-                if (result.valid) {
-                    if (comboPiece&&result.type!=='jump') return;
-                    if (!comboPiece&&result.type!=='jump'&&hasAnyJumpAvailable(currentTurn)) {
-                        const el=document.getElementById('turn-display'); const prevText=el.innerText;
-                        el.innerText=`⚠️ บังคับกิน! ต้องกินหมากฝ่ายตรงข้ามก่อน`;
-                        el.style.animation='none'; el.offsetHeight; el.style.animation='forceJumpWarning 0.5s ease';
-                        setTimeout(()=>{el.innerText=prevText;el.style.animation='';},1800); return;
-                    }
-                    executeMove(selectedPiece.row,selectedPiece.col,targetRow,targetCol,result,true);
-                }
-            }
-        }
-
-        let hoveredTile=null;
-        function onMouseMove(event) {
-            if (isGameOver) return;
-            const panel=document.getElementById('control-panel');
-            if (!panel.classList.contains('collapsed')&&event.clientX<panel.offsetWidth) return;
-            mouse.x=(event.clientX/window.innerWidth)*2-1; mouse.y=-(event.clientY/window.innerHeight)*2+1;
-            raycaster.setFromCamera(mouse,camera);
-            const intersects=raycaster.intersectObjects(tiles3DObjects);
-            if (intersects.length>0) {
-                const target=intersects[0].object;
-                if (hoveredTile!==target) {
-                    if (hoveredTile) {
-                        const isSel=selectedPiece&&selectedPiece.row===hoveredTile.userData.row&&selectedPiece.col===hoveredTile.userData.col;
-                        let isValidM=false;
-                        if (selectedPiece) { const res=checkMove(selectedPiece.row,selectedPiece.col,hoveredTile.userData.row,hoveredTile.userData.col); if (res.valid&&(!comboPiece||res.type==='jump')) isValidM=true; }
-                        if (isSel) hoveredTile.material.emissive.setHex(0xff8800);
-                        else if (isValidM) hoveredTile.material.emissive.setHex(0x00bb33);
-                        else hoveredTile.material.emissive.setHex(hoveredTile.userData.baseEmissive||0x000000);
-                    }
-                    hoveredTile=target;
-                    const isSel=selectedPiece&&selectedPiece.row===hoveredTile.userData.row&&selectedPiece.col===hoveredTile.userData.col;
-                    if (!isSel) hoveredTile.material.emissive.setHex(0x444455);
-                }
-            } else if (hoveredTile) {
-                const isSel=selectedPiece&&selectedPiece.row===hoveredTile.userData.row&&selectedPiece.col===hoveredTile.userData.col;
-                let isValidM=false;
-                if (selectedPiece) { const res=checkMove(selectedPiece.row,selectedPiece.col,hoveredTile.userData.row,hoveredTile.userData.col); if (res.valid&&(!comboPiece||res.type==='jump')) isValidM=true; }
-                if (isSel) hoveredTile.material.emissive.setHex(0xff8800);
-                else if (isValidM) hoveredTile.material.emissive.setHex(0x00bb33);
-                else hoveredTile.material.emissive.setHex(hoveredTile.userData.baseEmissive||0x000000);
-                hoveredTile=null;
-            }
-        }
-
-        window.addEventListener('mousemove', onMouseMove);
-        window.addEventListener('click', e=>handleInteraction(e.clientX,e.clientY));
-        window.addEventListener('wheel', e=>{currentZoomLevel+=e.deltaY*0.008;adjustCameraForDevice();},{passive:true});
-
-        let initialTouchDist=null;
-        window.addEventListener('touchstart', e=>{
-            SoundEffects.init();
-            if (e.touches.length===2) initialTouchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-            else if (e.touches.length===1) handleInteraction(e.touches[0].clientX,e.touches[0].clientY);
-        },{passive:true});
-        window.addEventListener('touchmove', e=>{
-            if (e.touches.length===2&&initialTouchDist!==null) {
-                const cd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-                currentZoomLevel+=(initialTouchDist-cd)*0.03; adjustCameraForDevice(); initialTouchDist=cd;
-            }
-        },{passive:true});
-        window.addEventListener('touchend', e=>{if(e.touches.length<2)initialTouchDist=null;});
-
-        function updateUI(hasSelected) {
-            const el=document.getElementById('turn-display');
-            let name=currentTurn===1?"ฝ่ายสีแดง":"ฝ่ายสีน้ำตาล";
-            el.className=currentTurn===1?"turn-red":"turn-blue";
-            const mustJump=!comboPiece&&!hasSelected&&hasAnyJumpAvailable(currentTurn);
-            if (comboPiece) el.innerText=`💥 ${name} กำลังทำคอมโบกินต่อเนื่อง!`;
-            else if (mustJump&&!hasSelected) el.innerText=`⚔️ ${name} — มีการกินบังคับ! กรุณากินก่อน`;
-            else el.innerText=hasSelected?`${name} เลือกหมากแล้ว แตะช่องเพื่อเดิน`:`${name} ถึงตาเดินแล้ว`;
-            el.style.animation='none'; el.offsetHeight; el.style.animation='turnSlide 0.35s cubic-bezier(0.175,0.885,0.32,1.275) forwards';
-        }
-
-        function checkSavedPlayer() {
-            const savedName=localStorage.getItem('checkers_username');
-            if (savedName) {
-                document.getElementById('auth-section').style.display='none';
-                document.getElementById('profile-section').style.display='block';
-                document.getElementById('user-display').innerText=savedName;
-                document.getElementById('login-shortcut-btn').innerText='👤 โปรไฟล์: '+savedName;
-                if (socket&&socket.connected) socket.emit('registerPlayer',savedName);
-            }
-            updateNametags();
-        }
-
-        function registerPlayer() { const u=document.getElementById('username-input').value.trim(); if (!u) return; localStorage.setItem('checkers_username',u); window.location.reload(); }
-        function logoutPlayer() { localStorage.removeItem('checkers_username'); window.location.reload(); }
-
-        window.addEventListener('resize',()=>{
-            camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
-            adjustCameraForDevice(); renderer.setSize(window.innerWidth,window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-        });
-
-        // Blink system
-        let blinkMeshMap=new Map();
-        function setPieceBlinkState(mesh,type) { blinkMeshMap.set(mesh,{type}); }
-        function clearAllPieceBlinks() {
-            blinkMeshMap.forEach((state,mesh)=>{
-                mesh.traverse(child=>{ if (child.isMesh&&child.material&&child.material.emissive) { child.material.emissive.setHex(0x000000); child.material.emissiveIntensity=1; }});
-            });
-            blinkMeshMap.clear();
-        }
-        function updatePieceBlinks() {
-            if (blinkMeshMap.size===0) return;
-            const t=Date.now()*0.002;
-            blinkMeshMap.forEach((state,mesh)=>{
-                if (!mesh.parent) { blinkMeshMap.delete(mesh); return; }
-                const pulse=(Math.sin(t*Math.PI*2)+1)/2;
-                let emissiveColor, intensity;
-                if (state.type==='mandatory') { emissiveColor=0xff3300; intensity=0.2+pulse*0.9; }
-                else { emissiveColor=0xffaa00; intensity=0.3+pulse*0.8; }
-                mesh.traverse(child=>{ if (child.isMesh&&child.material&&child.material.emissive) { child.material.emissive.setHex(emissiveColor); child.material.emissiveIntensity=intensity; }});
-            });
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            updateParticles(); updatePieceAnimations(); updatePieceBlinks(); updateKnightJumpAnimations();
-            const t=Date.now()*0.001;
-            piece3DObjects.forEach((p,idx)=>{
-                const isAnimating = pieceAnimations.some(a=>a.mesh===p)
-                    || capturedAnimations.some(a=>a.mesh===p)
-                    || knightJumpAnimations.some(a=>a.mesh===p);
-                if (isAnimating) return;
-                if (p.userData.baseY===undefined) p.userData.baseY=p.position.y;
-                p.position.y=p.userData.baseY+Math.sin(t*1.6+idx*0.9)*0.012;
-            });
-            renderer.render(scene,camera);
-        }
-
-        // ==========================================
-        //  FX Animations
-        // ==========================================
-        let fxAnimId=null, cryAnimId=null, applauseInterval=null;
-        function stopFxAnimations() {
-            if (fxAnimId) { cancelAnimationFrame(fxAnimId); fxAnimId=null; }
-            if (cryAnimId) { cancelAnimationFrame(cryAnimId); cryAnimId=null; }
-            if (applauseInterval) { clearInterval(applauseInterval); applauseInterval=null; }
-            const fx=document.getElementById('fx-canvas');
-            if (fx) { fx.style.display='none'; fx.getContext('2d').clearRect(0,0,fx.width,fx.height); }
-            const cry=document.getElementById('cry-canvas');
-            if (cry) cry.style.display='none';
-        }
-
-        function startFireworks() {
-            const fx=document.getElementById('fx-canvas');
-            fx.width=window.innerWidth; fx.height=window.innerHeight; fx.style.display='block';
-            const ctx=fx.getContext('2d'); const rockets=[], sparks=[];
-            function launchRocket() { rockets.push({x:80+Math.random()*(fx.width-160),y:fx.height,tx:60+Math.random()*(fx.width-120),ty:60+Math.random()*(fx.height*0.5),speed:8+Math.random()*6,color:`hsl(${Math.random()*360},100%,65%)`,trail:[]}); }
-            function burst(x,y,color) { for (let i=0;i<100;i++) { const angle=(i/100)*Math.PI*2,speed=1.5+Math.random()*4.5; sparks.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,life:1.0,decay:0.012+Math.random()*0.018,color,size:1.5+Math.random()*2}); } }
-            let launchTimer=0, stopAt=Date.now()+6000;
-            function drawFx() {
-                if (!document.getElementById('game-over-modal')||document.getElementById('game-over-modal').style.display==='none') { stopFxAnimations(); return; }
-                ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.fillRect(0,0,fx.width,fx.height);
-                launchTimer++; if (launchTimer%28===0&&Date.now()<stopAt) launchRocket();
-                for (let i=rockets.length-1;i>=0;i--) {
-                    const r=rockets[i]; const dx=r.tx-r.x,dy=r.ty-r.y,dist=Math.sqrt(dx*dx+dy*dy);
-                    if (dist<r.speed) { burst(r.x,r.y,r.color); rockets.splice(i,1); }
-                    else { r.trail.push({x:r.x,y:r.y}); if (r.trail.length>8) r.trail.shift(); r.x+=(dx/dist)*r.speed; r.y+=(dy/dist)*r.speed; r.trail.forEach((pt,ti)=>{ ctx.beginPath(); ctx.arc(pt.x,pt.y,1.5*(ti/r.trail.length),0,Math.PI*2); ctx.fillStyle=r.color; ctx.globalAlpha=ti/r.trail.length*0.6; ctx.fill(); }); ctx.globalAlpha=1; }
-                }
-                for (let i=sparks.length-1;i>=0;i--) { const s=sparks[i]; s.x+=s.vx;s.y+=s.vy;s.vy+=0.08;s.vx*=0.97;s.life-=s.decay; if (s.life<=0){sparks.splice(i,1);continue;} ctx.beginPath();ctx.arc(s.x,s.y,s.size*s.life,0,Math.PI*2);ctx.fillStyle=s.color;ctx.globalAlpha=s.life;ctx.fill();ctx.globalAlpha=1; }
-                fxAnimId=requestAnimationFrame(drawFx);
-            }
-            drawFx();
-        }
-
-        function showApplause() {
-            const words=['👏','👏 ยอดเยี่ยม!','🎉','👏','🏆 ชนะ!','👏','🎊','👏 เก่งมาก!'];
-            let idx=0;
-            applauseInterval=setInterval(()=>{
-                if (!document.getElementById('game-over-modal')||document.getElementById('game-over-modal').style.display==='none') { clearInterval(applauseInterval); return; }
-                const span=document.createElement('div'); span.innerText=words[idx%words.length]; idx++;
-                span.style.cssText=`position:fixed;left:${10+Math.random()*80}%;top:${10+Math.random()*60}%;font-size:${18+Math.random()*22}px;font-weight:700;color:#ffd700;text-shadow:0 2px 8px rgba(0,0,0,0.6);z-index:1001;pointer-events:none;animation:apFloat 1.4s ease-out forwards;font-family:'Sarabun',sans-serif;`;
-                document.body.appendChild(span); setTimeout(()=>span.remove(),1500);
-            },380);
-        }
-
-        function startCryAnim() {
-            let cry=document.getElementById('cry-canvas');
-            if (!cry) { cry=document.createElement('canvas'); cry.id='cry-canvas'; cry.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;z-index:997;pointer-events:none;'; document.body.appendChild(cry); }
-            cry.width=window.innerWidth; cry.height=window.innerHeight; cry.style.display='block';
-            const ctx=cry.getContext('2d'); const drops=[]; let frame=0;
-            function spawnDrop() { drops.push({x:Math.random()*cry.width,y:-20,vy:3+Math.random()*4,size:4+Math.random()*8,life:1.0,wobble:Math.random()*Math.PI*2}); }
-            function drawCry() {
-                if (!document.getElementById('game-over-modal')||document.getElementById('game-over-modal').style.display==='none') { stopFxAnimations(); return; }
-                ctx.clearRect(0,0,cry.width,cry.height); frame++;
-                if (frame%8===0) spawnDrop();
-                for (let i=drops.length-1;i>=0;i--) { const d=drops[i]; d.y+=d.vy;d.wobble+=0.08;d.x+=Math.sin(d.wobble)*0.5; if (d.y>cry.height+30){drops.splice(i,1);continue;} ctx.save();ctx.translate(d.x,d.y);const g=ctx.createRadialGradient(0,0,0,0,0,d.size);g.addColorStop(0,'rgba(130,200,255,0.95)');g.addColorStop(1,'rgba(60,140,255,0.2)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,d.size,0,Math.PI*2);ctx.moveTo(-d.size*0.4,0);ctx.quadraticCurveTo(0,-d.size*2.2,d.size*0.4,0);ctx.fill();ctx.restore(); }
-                if (frame%90===0) { const sw=['😭','แพ้แล้ว...','😢','ไม่เป็นไร!','😭','สู้ต่อไป!']; const span=document.createElement('div'); span.innerText=sw[Math.floor(Math.random()*sw.length)]; span.style.cssText=`position:fixed;left:${15+Math.random()*70}%;top:${15+Math.random()*55}%;font-size:${16+Math.random()*18}px;font-weight:700;color:#88ccff;text-shadow:0 2px 6px rgba(0,0,80,0.5);z-index:1001;pointer-events:none;animation:apFloat 2s ease-out forwards;font-family:'Sarabun',sans-serif;`; document.body.appendChild(span); setTimeout(()=>span.remove(),2100); }
-                cryAnimId=requestAnimationFrame(drawCry);
-            }
-            drawCry();
-        }
-
-        // เริ่มต้น
-        applyTheme('royalwood');
-        updateTitleText();
-        updateUI(false);
-        animate();
-    </script>
 </body>
 </html>
