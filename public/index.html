@@ -765,7 +765,7 @@ function createKingAura(mesh,colorHex,isRed){
 
     // ─ วางไว้ที่ mesh position ─
     group.position.copy(mesh.position);
-    group.position.y+=0.12; // king on horse สูงกว่า
+    group.position.y+=0.55; // อยู่กลางลำตัวพระราชา
     scene.add(group);
     auraObjs.group=group;
     auraObjs.yOffset=0.12;
@@ -788,7 +788,7 @@ function updateKingAuras(){
         // ติดตามตำแหน่ง mesh (king-on-horse สูงกว่า)
         aura.group.position.x=mesh.position.x;
         aura.group.position.z=mesh.position.z;
-        aura.group.position.y=mesh.position.y+(aura.yOffset||0.12);
+        aura.group.position.y=mesh.position.y+(aura.yOffset||0.55);
 
         // rotate rings
         aura.rings.forEach(ring=>{ring.rotation.y+=ring.userData.rotSpeed*0.016;});
@@ -897,233 +897,131 @@ function createKnightFigure(colorHex,emissiveHex){
 }
 
 // ==========================================
-// [ม้า 3D procedural — ใช้สำหรับ King]
-// สร้างม้าทั้งตัว: ลำตัว + ขา4ข้าง + คอ + หัว + หาง
-// ม้าหันหน้าไปทาง +Z (เดินหน้าหาศัตรู)
+// [King Figure 3D — อัศวินขุน ยืนเต็มตัว]
+// เหมือน createKnightFigure แต่สูงกว่า + มงกุฎทอง + ขวานยิ่งใหญ่ + ผ้าคลุม
 // ==========================================
-function createHorse3D(colorHex,emissiveHex){
+function createKingFigure(colorHex,emissiveHex){
     const group=new THREE.Group();
-    const mat=new THREE.MeshStandardMaterial({color:colorHex,roughness:0.32,metalness:0.55,emissive:emissiveHex,emissiveIntensity:0.18});
-    const matDark=new THREE.MeshStandardMaterial({color:colorHex,roughness:0.45,metalness:0.35,emissive:emissiveHex,emissiveIntensity:0.06});
-    const matMane=new THREE.MeshStandardMaterial({color:colorHex,roughness:0.55,metalness:0.20,emissive:emissiveHex,emissiveIntensity:0.12,side:THREE.DoubleSide});
-
-    // ─── ลำตัว (barrel) ───
-    const bodyGeo=new THREE.CylinderGeometry(0.19,0.17,0.54,16);
-    const body=new THREE.Mesh(bodyGeo,mat);
-    body.rotation.x=Math.PI/2; // นอนราบ ชี้ +Z
-    body.position.set(0,0.26,0);
-    group.add(body);
-
-    // ─── ก้น (rump) ─── ขยายส่วนท้าย
-    const rump=new THREE.Mesh(new THREE.SphereGeometry(0.19,12,10),mat);
-    rump.scale.set(0.85,0.88,0.72);rump.position.set(0,0.26,-0.26);group.add(rump);
-
-    // ─── หน้าอก (chest) ─── ขยายส่วนหน้า
-    const chest=new THREE.Mesh(new THREE.SphereGeometry(0.17,12,10),mat);
-    chest.scale.set(0.88,0.92,0.75);chest.position.set(0,0.27,0.26);group.add(chest);
-
-    // ─── ขา 4 ข้าง ─── (คู่หน้า/หลัง)
-    // ขาหน้า: ยกขึ้นเล็กน้อยในท่าเดิน
-    [
-        [-0.11,0,0.20, 0.20],   // FL (หน้าซ้าย) — ยกขึ้น
-        [ 0.11,0,0.20,-0.12],   // FR (หน้าขวา)
-        [-0.11,0,-0.20, 0.10],  // BL (หลังซ้าย)
-        [ 0.11,0,-0.20,-0.08]   // BR (หลังขวา) — ยกขึ้นเล็กน้อย
-    ].forEach(([lx,ly,lz,rotX])=>{
-        // ต้นขา
-        const upper=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.050,0.18,8),mat);
-        upper.position.set(lx,0.13,lz);upper.rotation.x=rotX;group.add(upper);
-        // แข้ง
-        const lower=new THREE.Mesh(new THREE.CylinderGeometry(0.040,0.038,0.17,8),matDark);
-        lower.position.set(lx,0.14+Math.sin(rotX)*-0.07,lz+Math.cos(rotX)*-0.05);
-        lower.rotation.x=rotX*0.6;group.add(lower);
-        // กีบ
-        const hoof=new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.048,0.04,10),matDark);
-        hoof.position.set(lx,0.028+Math.abs(rotX)*0.05,lz+Math.cos(rotX)*-0.10);group.add(hoof);
-    });
-
-    // ─── คอ (neck) — เอียงขึ้นและไปข้างหน้า ───
-    const neckGrp=new THREE.Group();
-    const neckLow=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.14,0.25,12),mat);
-    neckLow.position.set(0,0.125,0);group.add(neckLow);
-    neckGrp.add(neckLow);
-    neckGrp.position.set(0,0.30,0.24);
-    neckGrp.rotation.x=-0.60; // คอก้มไปข้างหน้า
-    group.add(neckGrp);
-
-    // คอส่วนบน (ต่อจาก neckGrp)
-    const neckUp=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.11,0.20,12),mat);
-    neckUp.position.set(0,0.45,0.30);neckUp.rotation.x=-0.55;group.add(neckUp);
-
-    // ─── หัวม้า ───
-    const headGrp=new THREE.Group();
-    // กะโหลก
-    const skull=new THREE.Mesh(new THREE.SphereGeometry(0.115,14,12),mat);
-    skull.scale.set(0.78,0.85,1.10);headGrp.add(skull);
-    // ปาก/จมูก
-    const muzzle=new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.075,0.16,10),mat);
-    muzzle.rotation.x=Math.PI/2;muzzle.position.set(0,-0.02,0.14);headGrp.add(muzzle);
-    // รูจมูก x2
-    [-0.04,0.04].forEach(xo=>{
-        const nos=new THREE.Mesh(new THREE.SphereGeometry(0.025,6,5),matDark);nos.position.set(xo,-0.04,0.20);headGrp.add(nos);
-    });
-    // ตา x2
-    const eyeM=new THREE.MeshStandardMaterial({color:0x111111,roughness:0.05,metalness:0.8});
-    [-0.09,0.09].forEach(xo=>{
-        const eye=new THREE.Mesh(new THREE.SphereGeometry(0.032,8,7),eyeM);eye.position.set(xo,0.04,0.07);headGrp.add(eye);
-        // ประกายตา
-        const glint=new THREE.Mesh(new THREE.SphereGeometry(0.010,6,5),new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:2}));
-        glint.position.set(xo+0.012,0.052,0.095);headGrp.add(glint);
-    });
-    // หู x2
-    const earG=new THREE.ConeGeometry(0.035,0.08,7);
-    [-0.07,0.07].forEach(xo=>{
-        const ear=new THREE.Mesh(earG,mat);ear.position.set(xo,0.12,-0.04);ear.rotation.z=xo>0?0.22:-0.22;ear.rotation.x=-0.15;headGrp.add(ear);
-    });
-    headGrp.position.set(0,0.61,0.46);headGrp.rotation.x=-0.20;
-    group.add(headGrp);
-
-    // ─── แผงคอ (mane) — ยาวตามคอ ───
-    for(let i=0;i<6;i++){
-        const mane=new THREE.Mesh(new THREE.PlaneGeometry(0.10+i*0.01,0.18),matMane);
-        mane.position.set(0,0.36+i*0.02,0.24-i*0.015);
-        mane.rotation.x=-0.6-i*0.05;mane.rotation.y=Math.PI/2;
-        group.add(mane);
-    }
-
-    // ─── หาง (tail) ─── พู่ห้อยด้านหลัง
-    for(let t=0;t<5;t++){
-        const tailSeg=new THREE.Mesh(new THREE.CylinderGeometry(0.015-t*0.002,0.018-t*0.002,0.20,6),matMane);
-        tailSeg.position.set((t%2===0?0.02:-0.02),0.22-t*0.05,-0.32-t*0.06);
-        tailSeg.rotation.x=0.4+t*0.12;group.add(tailSeg);
-    }
-
-    // ─── อาน (saddle) ───
-    const saddleGeo=new THREE.BoxGeometry(0.22,0.06,0.20);
-    const saddleMat=new THREE.MeshStandardMaterial({color:0x5c3010,roughness:0.6,metalness:0.1});
-    const saddle=new THREE.Mesh(saddleGeo,saddleMat);saddle.position.set(0,0.38,-0.02);group.add(saddle);
-    // โกลน (stirrup) x2
-    [-0.14,0.14].forEach(xo=>{
-        const stirrup=new THREE.Mesh(new THREE.TorusGeometry(0.032,0.008,6,12),new THREE.MeshStandardMaterial({color:colorHex,metalness:0.9,roughness:0.1}));
-        stirrup.position.set(xo,0.18,0.02);stirrup.rotation.x=Math.PI/2;group.add(stirrup);
-    });
-
-    // ─── บังเหียน (bridle) ───
-    const bridleMat=new THREE.MeshStandardMaterial({color:0x5c3010,roughness:0.65,metalness:0.08});
-    const bridleHead=new THREE.Mesh(new THREE.TorusGeometry(0.095,0.010,6,16,Math.PI*1.4),bridleMat);
-    bridleHead.position.set(0,0.60,0.44);bridleHead.rotation.z=Math.PI/2;group.add(bridleHead);
-
-    group.scale.setScalar(0.85); // scale ม้าให้พอดี
-    return group;
-}
-
-// ==========================================
-// [King On Horse — พระราชาขี่ม้า]
-// ม้า + อัศวินนั่งบนอาน (ท่านั่งขี่)
-// ==========================================
-function createKingOnHorse(colorHex,emissiveHex){
-    const outerGroup=new THREE.Group();
-
-    // ─── ม้า ───
-    const horse=createHorse3D(colorHex,emissiveHex);
-    outerGroup.add(horse);
-
-    // ─── วัสดุ King ───
-    const mat=new THREE.MeshStandardMaterial({color:colorHex,roughness:0.15,metalness:0.85,emissive:emissiveHex,emissiveIntensity:0.30});
-    const matDark=new THREE.MeshStandardMaterial({color:colorHex,roughness:0.28,metalness:0.62,emissive:emissiveHex,emissiveIntensity:0.10});
-    const matVisor=new THREE.MeshStandardMaterial({color:0x111111,roughness:0.04,metalness:0.96,emissive:colorHex,emissiveIntensity:0.65});
+    const mat=new THREE.MeshStandardMaterial({color:colorHex,roughness:0.14,metalness:0.88,emissive:emissiveHex,emissiveIntensity:0.30});
+    const matDark=new THREE.MeshStandardMaterial({color:colorHex,roughness:0.28,metalness:0.65,emissive:emissiveHex,emissiveIntensity:0.12});
+    const matVisor=new THREE.MeshStandardMaterial({color:0x111111,roughness:0.04,metalness:0.96,emissive:colorHex,emissiveIntensity:0.75});
     const crownMat=new THREE.MeshStandardMaterial({color:0xffd700,roughness:0.05,metalness:0.97,emissive:0x3a2200});
 
-    // ─── ขาขี่ม้า (กางออกข้าง ม้า) ───
-    [-0.14,0.14].forEach(xOff=>{
-        const thigh=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.060,0.20,10),mat);
-        thigh.position.set(xOff,0.355,-0.02);thigh.rotation.z=xOff>0?1.1:-1.1;thigh.rotation.x=0.25;
-        outerGroup.add(thigh);
-        const shin=new THREE.Mesh(new THREE.CylinderGeometry(0.046,0.055,0.18,10),mat);
-        shin.position.set(xOff>0?0.22:-0.22,0.21,0.04);shin.rotation.z=xOff>0?1.6:-1.6;shin.rotation.x=0.45;
-        outerGroup.add(shin);
-        const boot=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.055,0.12),mat);
-        boot.position.set(xOff>0?0.25:-0.25,0.17,0.06);outerGroup.add(boot);
+    // ─── ขา ───
+    [-0.09,0.09].forEach(xOff=>{
+        const thigh=new THREE.Mesh(new THREE.CylinderGeometry(0.072,0.078,0.24,10),mat);thigh.position.set(xOff,0.37,0);group.add(thigh);
+        const shin=new THREE.Mesh(new THREE.CylinderGeometry(0.060,0.072,0.22,10),mat);shin.position.set(xOff*1.05,0.15,0.012);shin.rotation.x=0.08;group.add(shin);
+        const boot=new THREE.Mesh(new THREE.BoxGeometry(0.11,0.065,0.15),mat);boot.position.set(xOff,0.032,0.02);group.add(boot);
+        // ตะเข็บขา (knee plate)
+        const knee=new THREE.Mesh(new THREE.SphereGeometry(0.050,8,6),mat);knee.scale.set(1,0.7,0.9);knee.position.set(xOff,0.255,0.02);group.add(knee);
     });
 
-    // ─── ลำตัว King (นั่งตัวตรงบนอาน) ───
-    const torso=new THREE.Mesh(new THREE.CylinderGeometry(0.12,0.135,0.24,14),mat);
-    torso.position.set(0,0.55,-0.02);outerGroup.add(torso);
-    const chestPlate=new THREE.Mesh(new THREE.BoxGeometry(0.18,0.16,0.055),mat);
-    chestPlate.position.set(0,0.565,0.095);outerGroup.add(chestPlate);
-
-    // ─── ไหล่ ───
-    [-0.17,0.17].forEach(xOff=>{
-        const pauldron=new THREE.Mesh(new THREE.SphereGeometry(0.080,12,10),mat);
-        pauldron.scale.set(1,0.78,0.88);pauldron.position.set(xOff,0.645,0);outerGroup.add(pauldron);
+    // ─── เอว/สะโพก ───
+    const hip=new THREE.Mesh(new THREE.CylinderGeometry(0.165,0.155,0.09,14),mat);hip.position.set(0,0.495,0);group.add(hip);
+    // กระโปรงเกราะ (tasset) 4 แผ่น
+    [[-0.10,0,0.14],[0.10,0,0.14],[0,0.10,-0.12],[0,-0.10,-0.12]].forEach(([tx,_,tz])=>{
+        const tasset=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.12,0.025),matDark);
+        tasset.position.set(tx,0.44,tz);tasset.rotation.y=Math.atan2(tz,tx);group.add(tasset);
     });
 
-    // ─── แขนซ้าย — ถือบังเหียน ───
-    const foreArmL=new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.048,0.17,10),mat);
-    foreArmL.position.set(-0.18,0.53,0.09);foreArmL.rotation.z=0.55;foreArmL.rotation.x=-0.50;outerGroup.add(foreArmL);
-    // มือถือบังเหียน
-    const reinsL=new THREE.Mesh(new THREE.CylinderGeometry(0.010,0.010,0.22,6),matDark);
-    reinsL.position.set(-0.12,0.43,0.22);reinsL.rotation.x=-0.80;reinsL.rotation.z=0.35;outerGroup.add(reinsL);
+    // ─── ลำตัว ───
+    const torso=new THREE.Mesh(new THREE.CylinderGeometry(0.155,0.168,0.28,14),mat);torso.position.set(0,0.65,0);group.add(torso);
+    // แผ่นอก
+    const chest=new THREE.Mesh(new THREE.BoxGeometry(0.22,0.20,0.065),mat);chest.position.set(0,0.665,0.10);group.add(chest);
+    // รอยสลักกลางอก (crest line)
+    const crestLine=new THREE.Mesh(new THREE.BoxGeometry(0.015,0.16,0.07),matVisor);crestLine.position.set(0,0.668,0.12);group.add(crestLine);
+    // แผ่นหลัง
+    const back=new THREE.Mesh(new THREE.BoxGeometry(0.20,0.19,0.055),matDark);back.position.set(0,0.660,-0.10);group.add(back);
 
-    // ─── แขนขวา — ถือดาบยกสูง ───
-    const foreArmR=new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.048,0.17,10),mat);
-    foreArmR.position.set(0.18,0.56,0.06);foreArmR.rotation.z=-0.38;foreArmR.rotation.x=-0.25;outerGroup.add(foreArmR);
-
-    // ─── ดาบพระราชา (ยกสูงขึ้นฟ้า + ยาวกว่า) ───
-    const swordGrp=new THREE.Group();
-    const blade=new THREE.Mesh(new THREE.BoxGeometry(0.026,0.56,0.010),new THREE.MeshStandardMaterial({color:0xffffff,roughness:0.03,metalness:0.99,emissive:0x88aacc,emissiveIntensity:0.8}));
-    blade.position.y=0.28;swordGrp.add(blade);
-    const guard=new THREE.Mesh(new THREE.BoxGeometry(0.13,0.024,0.024),mat);guard.position.y=0.01;swordGrp.add(guard);
-    const grip=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.12,8),matDark);grip.position.y=-0.07;swordGrp.add(grip);
-    // pommel
-    const pommel=new THREE.Mesh(new THREE.SphereGeometry(0.028,8,8),mat);pommel.position.y=-0.135;swordGrp.add(pommel);
-    // blade glow streak
-    const bladeGlow=new THREE.Mesh(new THREE.BoxGeometry(0.009,0.54,0.003),new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:2.5,transparent:true,opacity:0.55}));
-    bladeGlow.position.y=0.28;swordGrp.add(bladeGlow);
-    outerGroup.userData.bladeGlow=bladeGlow;
-    // วางดาบยกสูงเฉียงไปข้างหน้า
-    swordGrp.position.set(0.26,0.72,0.10);
-    swordGrp.rotation.x=-0.28;swordGrp.rotation.z=-0.18;
-    outerGroup.add(swordGrp);outerGroup.userData.swordGrp=swordGrp;
-
-    // ─── คอ + หัวเกราะ ───
-    const neck=new THREE.Mesh(new THREE.CylinderGeometry(0.065,0.082,0.07,12),mat);neck.position.set(0,0.715,0);outerGroup.add(neck);
-    const helmetBase=new THREE.Mesh(new THREE.SphereGeometry(0.108,16,14),mat);helmetBase.scale.set(1,1.10,0.97);helmetBase.position.set(0,0.820,0);outerGroup.add(helmetBase);
-    const helmBrim=new THREE.Mesh(new THREE.CylinderGeometry(0.120,0.115,0.024,16),mat);helmBrim.position.set(0,0.758,0);outerGroup.add(helmBrim);
-    const visor=new THREE.Mesh(new THREE.BoxGeometry(0.122,0.062,0.068),matVisor);visor.position.set(0,0.820,0.082);visor.rotation.x=-0.10;outerGroup.add(visor);
-    [-0.030,0.030].forEach(xOff=>{
-        const eyeSlit=new THREE.Mesh(new THREE.BoxGeometry(0.026,0.013,0.08),new THREE.MeshStandardMaterial({color:colorHex,roughness:0,metalness:0,emissive:colorHex,emissiveIntensity:3.2}));
-        eyeSlit.position.set(xOff,0.826,0.088);outerGroup.add(eyeSlit);
-    });
-
-    // ─── มงกุฎทอง (วางบนหมวกเกราะ) ───
-    const crownRing=new THREE.Mesh(new THREE.CylinderGeometry(0.092,0.100,0.036,16),crownMat);
-    crownRing.position.set(0,0.910,0);outerGroup.add(crownRing);
-    for(let p=0;p<6;p++){
-        const angle=(p/6)*Math.PI*2;
-        const cx=Math.cos(angle)*0.085,cz=Math.sin(angle)*0.085;
-        const spike=new THREE.Mesh(new THREE.ConeGeometry(0.013,0.09,6),crownMat);spike.position.set(cx,0.960,cz);
-        const bead=new THREE.Mesh(new THREE.SphereGeometry(0.016,8,8),crownMat);bead.position.set(cx*1.08,1.030,cz*1.08);
-        outerGroup.add(spike);outerGroup.add(bead);
-    }
-    // ขนนกสีตาม faction
-    const plume=new THREE.Mesh(new THREE.CylinderGeometry(0.010,0.022,0.26,8),new THREE.MeshStandardMaterial({color:colorHex,roughness:0.55,metalness:0.08,emissive:colorHex,emissiveIntensity:0.55}));
-    plume.position.set(0,1.065,-0.018);outerGroup.add(plume);
-    // แก้วกลางมงกุฎ (gem) — glow
-    const gem=new THREE.Mesh(new THREE.OctahedronGeometry(0.028,0),new THREE.MeshStandardMaterial({color:0xffffff,emissive:colorHex,emissiveIntensity:5.5,transparent:true,opacity:0.92}));
-    gem.position.set(0,1.005,0);outerGroup.add(gem);outerGroup.userData.crownGem=gem;
-
-    // ─── ผ้าคลุมราชา (cape) ── ด้านหลัง ───
-    const capeMat=new THREE.MeshStandardMaterial({color:colorHex,roughness:0.7,metalness:0.05,emissive:emissiveHex,emissiveIntensity:0.20,side:THREE.DoubleSide});
-    for(let c2=0;c2<4;c2++){
-        const capePanel=new THREE.Mesh(new THREE.PlaneGeometry(0.14,0.28),capeMat);
-        capePanel.position.set((c2-1.5)*0.055,0.52,-0.12-c2*0.01);
-        capePanel.rotation.x=0.25+c2*0.06;outerGroup.add(capePanel);
+    // ─── ผ้าคลุมราชา (cape) ─── พลิ้วด้านหลัง
+    const capeMat=new THREE.MeshStandardMaterial({color:colorHex,roughness:0.68,metalness:0.06,emissive:emissiveHex,emissiveIntensity:0.22,side:THREE.DoubleSide});
+    for(let ci=0;ci<5;ci++){
+        const cp=new THREE.Mesh(new THREE.PlaneGeometry(0.13,0.35),capeMat);
+        cp.position.set((ci-2)*0.06,0.60,-0.14-ci*0.008);
+        cp.rotation.x=0.22+ci*0.04;group.add(cp);
     }
 
-    outerGroup.scale.setScalar(0.72);
-    // position.y จัดการโดย drawPieces
-    return outerGroup;
+    // ─── ไหล่ใหญ่ (pauldrons) ───
+    [-0.21,0.21].forEach(xOff=>{
+        const pauldron=new THREE.Mesh(new THREE.SphereGeometry(0.10,12,10),mat);pauldron.scale.set(1.1,0.78,0.90);pauldron.position.set(xOff,0.755,0);group.add(pauldron);
+        const rim=new THREE.Mesh(new THREE.TorusGeometry(0.092,0.014,6,16,Math.PI),mat);rim.rotation.x=Math.PI/2;rim.position.set(xOff,0.720,0);group.add(rim);
+        const upperArm=new THREE.Mesh(new THREE.CylinderGeometry(0.060,0.070,0.20,10),mat);upperArm.position.set(xOff*1.1,0.62,0);upperArm.rotation.z=xOff>0?0.28:-0.28;group.add(upperArm);
+    });
+
+    // ─── แขนซ้าย — โล่ขนาดใหญ่ ───
+    const foreArmL=new THREE.Mesh(new THREE.CylinderGeometry(0.050,0.058,0.17,10),mat);
+    foreArmL.position.set(-0.235,0.515,0.07);foreArmL.rotation.z=0.48;foreArmL.rotation.x=-0.32;group.add(foreArmL);
+    const shieldGrp=new THREE.Group();
+    // โล่หลัก
+    const shieldBody=new THREE.Mesh(new THREE.BoxGeometry(0.21,0.30,0.038),mat);shieldGrp.add(shieldBody);
+    const shieldRim=new THREE.Mesh(new THREE.BoxGeometry(0.23,0.32,0.022),matDark);shieldRim.position.z=-0.028;shieldGrp.add(shieldRim);
+    // ลายบนโล่: วงกลม + ดาว
+    const shieldRing=new THREE.Mesh(new THREE.TorusGeometry(0.075,0.010,6,20),mat);shieldRing.position.z=0.030;shieldGrp.add(shieldRing);
+    const shieldGem=new THREE.Mesh(new THREE.OctahedronGeometry(0.040,0),new THREE.MeshStandardMaterial({color:0xffffff,emissive:colorHex,emissiveIntensity:4.5,transparent:true,opacity:0.88}));
+    shieldGem.position.z=0.038;shieldGrp.add(shieldGem);
+    shieldGrp.position.set(-0.32,0.59,0.24);shieldGrp.rotation.y=-0.28;shieldGrp.rotation.z=0.08;group.add(shieldGrp);
+
+    // ─── แขนขวา — ถือขวานยิ่งใหญ่ (battle axe) ───
+    const foreArmR=new THREE.Mesh(new THREE.CylinderGeometry(0.050,0.058,0.17,10),mat);
+    foreArmR.position.set(0.235,0.545,0.07);foreArmR.rotation.z=-0.44;foreArmR.rotation.x=-0.18;group.add(foreArmR);
+    group.userData.armR=foreArmR;
+
+    const axeGrp=new THREE.Group();
+    // ด้ามยาว
+    const haft=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.56,8),matDark);haft.position.y=0.28;axeGrp.add(haft);
+    // แต่ละหัวขวาน (2 หัว): ใช้ BoxGeometry ตัดเฉียง
+    [-0.085,0.085].forEach(yOff=>{
+        const blade=new THREE.Mesh(new THREE.CylinderGeometry(0.003,0.13,0.075,6),mat);
+        blade.rotation.z=Math.PI/2;blade.rotation.y=Math.PI/5;
+        blade.position.set(0.025,0.48+yOff,0);axeGrp.add(blade);
+    });
+    // ปลายด้าม (pommel)
+    const pommel=new THREE.Mesh(new THREE.SphereGeometry(0.030,8,8),mat);pommel.position.y=-0.005;axeGrp.add(pommel);
+    // glow แสงบนขวาน
+    const axeGlow=new THREE.Mesh(new THREE.SphereGeometry(0.048,8,6),new THREE.MeshStandardMaterial({color:colorHex,emissive:colorHex,emissiveIntensity:3.5,transparent:true,opacity:0.75}));
+    axeGlow.position.y=0.50;axeGrp.add(axeGlow);
+    group.userData.axeGlow=axeGlow;
+    axeGrp.position.set(0.32,0.66,0.10);axeGrp.rotation.z=-0.18;axeGrp.rotation.x=0.10;
+    group.add(axeGrp);group.userData.swordGrp=axeGrp;
+
+    // ─── คอ ───
+    const neck=new THREE.Mesh(new THREE.CylinderGeometry(0.075,0.095,0.085,12),mat);neck.position.set(0,0.820,0);group.add(neck);
+
+    // ─── หัวเกราะ ───
+    const helmetBase=new THREE.Mesh(new THREE.SphereGeometry(0.122,16,14),mat);helmetBase.scale.set(1,1.10,0.97);helmetBase.position.set(0,0.940,0);group.add(helmetBase);
+    const helmBrim=new THREE.Mesh(new THREE.CylinderGeometry(0.135,0.130,0.026,16),mat);helmBrim.position.set(0,0.870,0);group.add(helmBrim);
+    // visor
+    const visor=new THREE.Mesh(new THREE.BoxGeometry(0.138,0.070,0.075),matVisor);visor.position.set(0,0.934,0.090);visor.rotation.x=-0.12;group.add(visor);
+    [-0.034,0.034].forEach(xOff=>{
+        const eye=new THREE.Mesh(new THREE.BoxGeometry(0.030,0.015,0.085),new THREE.MeshStandardMaterial({color:colorHex,roughness:0,metalness:0,emissive:colorHex,emissiveIntensity:3.2}));
+        eye.position.set(xOff,0.940,0.092);group.add(eye);
+    });
+
+    // ─── มงกุฎทอง (King crown) บนหมวก ───
+    const crownRing=new THREE.Mesh(new THREE.CylinderGeometry(0.100,0.110,0.040,16),crownMat);crownRing.position.set(0,1.025,0);group.add(crownRing);
+    for(let p=0;p<7;p++){
+        const angle=(p/7)*Math.PI*2;
+        const cx=Math.cos(angle)*0.094,cz=Math.sin(angle)*0.094;
+        // spike สลับสูงต่ำ (tall/short pattern)
+        const h=p%2===0?0.12:0.080;
+        const spike=new THREE.Mesh(new THREE.ConeGeometry(0.013,h,6),crownMat);spike.position.set(cx,1.025+h/2+0.020,cz);group.add(spike);
+        const bead=new THREE.Mesh(new THREE.SphereGeometry(0.016,8,8),crownMat);bead.position.set(cx*1.06,1.025+h+0.030,cz*1.06);group.add(bead);
+    }
+    // ขนนกยาว
+    const plumeGeo=new THREE.CylinderGeometry(0.011,0.024,0.30,8);
+    const plume=new THREE.Mesh(plumeGeo,new THREE.MeshStandardMaterial({color:colorHex,roughness:0.58,metalness:0.08,emissive:colorHex,emissiveIntensity:0.60}));
+    plume.position.set(0,1.220,-0.020);group.add(plume);
+    const ridgeBar=new THREE.Mesh(new THREE.BoxGeometry(0.024,0.024,0.24),mat);ridgeBar.position.set(0,1.120,-0.018);group.add(ridgeBar);
+    // แก้วกลางมงกุฎ
+    const gem=new THREE.Mesh(new THREE.OctahedronGeometry(0.034,0),new THREE.MeshStandardMaterial({color:0xffffff,emissive:colorHex,emissiveIntensity:6.0,transparent:true,opacity:0.93}));
+    gem.position.set(0,1.075,0);group.add(gem);group.userData.crownGem=gem;
+
+    // ─── ฐานใหญ่ (king base) ───
+    const base=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.30,0.065,20),matDark);base.position.set(0,-0.032,0);group.add(base);
+    const baseRim=new THREE.Mesh(new THREE.TorusGeometry(0.28,0.012,6,24),crownMat);baseRim.rotation.x=Math.PI/2;baseRim.position.set(0,0.000,0);group.add(baseRim);
+
+    group.scale.setScalar(0.80);
+    return group;
 }
 
 // ==========================================
@@ -1345,15 +1243,14 @@ function drawPieces(){
             }else if(selectedTheme==='knight'){
                 const matConfig=isRed?theme.pieceRed:theme.pieceBlue;
                 if(isKing){
-                    pieceMesh=createKingOnHorse(matConfig.color,matConfig.emissive||0x000000);
+                    pieceMesh=createKingFigure(matConfig.color,matConfig.emissive||0x000000);
                 }else{
                     pieceMesh=createKnightFigure(matConfig.color,matConfig.emissive||0x000000);
                 }
-                // ฝั่งแดง (แถวล่าง): หันหน้าไปทาง -Z เข้าหาแถว 0
-                // ฝั่งน้ำเงิน (แถวบน): หันหน้าไปทาง +Z เข้าหาแถว 7 — ทั้งสองหันประทะกัน
+                // ฝั่งแดง: หันหน้าไปทาง -Z | ฝั่งน้ำเงิน: หันหน้าไปทาง +Z
                 pieceMesh.rotation.y=isRed?Math.PI:0;
-                // y: วางให้เท้า/กีบแตะบนกระดาน (tile top surface = 0.075)
-                const knightY = isKing ? 0.07 : 0.12;
+                // King scale=0.80, boot bottom ≈ same as knight → y=0.12
+                const knightY = 0.12;
                 pieceMesh.position.set(c-3.5, knightY, r-3.5);
             }else{
                 let sideMat,topMat;
@@ -1422,7 +1319,7 @@ function changeGameMode(mode){
     if(mode==='online'){friendSection.style.display='block';aiDifficultyContainer.style.display='none';renderOnlineFriends();}
     else if(mode==='local'){friendSection.style.display='none';aiDifficultyContainer.style.display='none';myRole='local';}
     else{friendSection.style.display='none';aiDifficultyContainer.style.display='block';myRole='red';}
-    adjustCameraForDevice();updateTitleText();resetGame(true);
+    adjustCameraForDevice();updateTitleText();resetGame();
 }
 function changeAiDifficulty(diff){aiDifficulty=diff;updateNametags();}
 function selectOnlineFriend(friendName){selectedFriend=friendName;if(gameMode==='online'&&friendName!=="")updateTitleText();}
@@ -1447,24 +1344,21 @@ function startGameSession(){
         if(socket&&socket.connected){socket.emit('challengePlayer',{target:selectedFriend,challenger:localStorage.getItem('checkers_username'),challengerColor:assignedColor});}
         else{alert('⚠️ ไม่ได้เชื่อมต่อ');return;}
     }
-    resetGame();toggleMainPanel();
+    // แสดง VS screen แล้วค่อย reset เกม
+    toggleMainPanel();
+    showVsScreen(()=>{ resetGame(); });
 }
 
-function resetGame(skipVs){
+function resetGame(){
     // ล้างออร่าก่อน reset
     piece3DObjects.forEach(p=>removeKingAura(p));
     boardState=[[0,2,0,2,0,2,0,2],[2,0,2,0,2,0,2,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,0]];
     currentTurn=1;selectedPiece=null;isGameOver=false;jumpCount=0;comboPiece=null;stopComboTimer();
     document.getElementById('game-over-modal').style.display='none';
     adjustCameraForDevice();updateUI(false);drawPieces();updateNametags();resetTileHighlights();
-    function _startActual(){
-        if(gameMode==='bot'&&myRole==='blue')triggerBotAiIfNeeded();else setTimeout(highlightMandatoryPieces,200);
-    }
-    if(skipVs){ _startActual(); return; }
-    // แสดง VS screen ก่อน แล้วค่อย start
-    setTimeout(()=>showVsScreen(_startActual), 120);
+    if(gameMode==='bot'&&myRole==='blue')triggerBotAiIfNeeded();else setTimeout(highlightMandatoryPieces,200);
 }
-function restartFromModal(){stopFxAnimations();if(gameMode==='online')startGameSession();else resetGame(false);}
+function restartFromModal(){stopFxAnimations();document.getElementById('game-over-modal').style.display='none';if(gameMode==='online'){startGameSession();}else{showVsScreen(()=>resetGame());}}
 function quitGame(){
     stopFxAnimations();document.getElementById('game-over-modal').style.display='none';isGameOver=false;
     piece3DObjects.forEach(p=>removeKingAura(p));
@@ -1792,17 +1686,17 @@ function updateKnightPieceAnims(){
             bg.material.opacity=0.38+Math.sin(t*4.2+idx)*0.32;
             bg.material.emissiveIntensity=1.5+Math.sin(t*3.5+idx*0.6)*1.0;
         }
-        // idle breathing
+        // axe glow pulse (king)
+        if(p.userData.axeGlow){
+            const ag=p.userData.axeGlow;
+            ag.material.emissiveIntensity=2.8+Math.sin(t*2.8+idx)*1.8;
+            ag.material.opacity=0.65+Math.sin(t*3.2+idx*0.7)*0.22;
+        }
+        // idle breathing — king เบาลงเหมือน knight ปกติ
         const isAnimating=pieceAnimations.some(a=>a.mesh===p)||capturedAnimations.some(a=>a.mesh===p)||knightJumpAnimations.some(a=>a.mesh===p);
         if(!isAnimating){
             if(p.userData.baseY===undefined)p.userData.baseY=p.position.y;
-            const isKingHorse=p.userData.crownGem!==undefined;
-            if(isKingHorse){
-                p.position.y=p.userData.baseY+Math.sin(t*2.2+idx*1.3)*0.022;
-                p.rotation.z=Math.sin(t*1.8+idx)*0.018;
-            }else{
-                p.position.y=p.userData.baseY+Math.sin(t*1.4+idx*1.1)*0.014;
-            }
+            p.position.y=p.userData.baseY+Math.sin(t*1.4+idx*1.1)*0.014;
         }
     });
 }
@@ -2066,8 +1960,8 @@ function showVsScreen(onDone) {
 applyTheme('knight'); // เริ่มด้วย Knight theme เพื่อโชว์ฟีเจอร์ใหม่
 document.getElementById('theme-select').value='knight';
 updateTitleText();updateUI(false);animate();
-// โชว์ VS screen ครั้งแรกหลัง scene พร้อม
-setTimeout(()=>{ drawPieces(); resetTileHighlights(); showVsScreen(()=>{ setTimeout(highlightMandatoryPieces,200); }); }, 600);
+// โหลดครั้งแรก: แค่ highlight ปกติ ไม่โชว์ VS
+setTimeout(()=>{ drawPieces(); resetTileHighlights(); setTimeout(highlightMandatoryPieces,200); }, 300);
 </script>
 </body>
 </html>
