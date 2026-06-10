@@ -494,42 +494,82 @@ function spawnDiveTrail(x,y,z,colorHex){
 function animateKnightSlash(mesh,enemyRow,enemyCol,endX,endY,endZ,onComplete){
     const startX=mesh.position.x,startZ=mesh.position.z;
     const startY=mesh.userData.baseY!==undefined?mesh.userData.baseY:mesh.position.y;
-    const midX=enemyCol-3.5,midZ=enemyRow-3.5;
-    const peakY=startY+2.2,diveY=startY+0.6;
+    // ตำแหน่งชนกับศัตรู (หยุดเล็กน้อยก่อนถึงศัตรู ½ ช่อง)
+    const enemyX=enemyCol-3.5,enemyZ=enemyRow-3.5;
+    const dx=enemyX-startX,dz=enemyZ-startZ,dist=Math.sqrt(dx*dx+dz*dz)||1;
+    const impactX=enemyX-dx/dist*0.45,impactZ=enemyZ-dz/dist*0.45;
     const isEnemyRed=boardState[enemyRow]&&(boardState[enemyRow][enemyCol]===1||boardState[enemyRow][enemyCol]===3);
     const theme=THEMES[selectedTheme];
     const explosionColor=isEnemyRed?theme.pieceRed.color:theme.pieceBlue.color;
     let exploded=false,trailTimer=0;
-    const armR=mesh.userData.armR||null,swordGrp=mesh.userData.swordGrp||null;
-    knightJumpAnimations.push({mesh,phase:0,progress:0,exploded,trailTimer,startX,startY,startZ,midX,peakY,midZ,diveY,endX,endY,endZ,enemyRow,enemyCol,explosionColor,armR,swordGrp,onComplete});
+    const swordGrp=mesh.userData.swordGrp||null;
+    // คำนวณ rotation.y ที่หันหน้าไปหาศัตรู
+    const facingY=Math.atan2(dx,dz);
+    knightJumpAnimations.push({mesh,phase:0,progress:0,exploded,trailTimer,
+        startX,startY,startZ,impactX,impactZ,enemyX,enemyZ,
+        endX,endY,endZ,enemyRow,enemyCol,explosionColor,swordGrp,
+        facingY,baseRotY:mesh.rotation.y,onComplete});
 }
 function updateKnightJumpAnimations(){
     for(let i=knightJumpAnimations.length-1;i>=0;i--){
-        const a=knightJumpAnimations[i];a.progress+=0.048;const mesh=a.mesh;
+        const a=knightJumpAnimations[i];a.progress+=0.055;const mesh=a.mesh;
+
         if(a.phase===0){
-            const t=Math.min(a.progress,1),ease=1-Math.pow(1-t,2);
-            mesh.position.x=a.startX+(a.midX-a.startX)*ease*0.5;mesh.position.z=a.startZ+(a.midZ-a.startZ)*ease*0.5;
-            mesh.position.y=a.startY+(a.peakY-a.startY)*Math.sin(t*Math.PI*0.5);
-            mesh.rotation.y+=0.14;mesh.rotation.x=-t*0.45;
-            if(a.swordGrp){a.swordGrp.rotation.z=-0.8+t*(-1.0);}
+            // ── Phase 0: วิ่งพุ่งตรงไปหาศัตรู ──
+            // เพิ่ม speed ให้เร็วแบบ exponential (เหมือน sprint)
+            const t=Math.min(a.progress,1);
+            const ease=t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2; // easeInOutQuad
+            mesh.position.x=a.startX+(a.impactX-a.startX)*ease;
+            mesh.position.z=a.startZ+(a.impactZ-a.startZ)*ease;
+            // เด้งเล็กน้อยตามจังหวะวิ่ง (bob ขึ้นลง 2 ครั้ง)
+            mesh.position.y=a.startY+Math.abs(Math.sin(t*Math.PI*2.5))*0.10;
+            // เอียงตัวไปข้างหน้าขณะพุ่ง
+            mesh.rotation.x=-0.30*Math.sin(t*Math.PI);
+            // หันหน้าไปหาศัตรู
+            mesh.rotation.y=a.facingY;
+            // ชูดาบไปข้างหน้าขณะวิ่ง
+            if(a.swordGrp){a.swordGrp.rotation.z=-0.10-t*0.25;}
+            // trail effect ขณะวิ่ง
+            a.trailTimer++;
+            if(a.trailTimer%4===0){spawnDiveTrail(mesh.position.x,mesh.position.y,mesh.position.z,a.explosionColor);}
             if(t>=1){a.phase=1;a.progress=0;}
+
         }else if(a.phase===1){
-            const t=Math.min(a.progress*1.5,1),ease=t*t;
-            mesh.position.x=a.midX;mesh.position.z=a.midZ;
-            mesh.position.y=a.peakY+(a.diveY-a.peakY)*ease;
-            mesh.rotation.x=-0.45+t*1.2;mesh.rotation.y+=0.22;
-            a.trailTimer++;if(a.trailTimer%3===0){spawnDiveTrail(mesh.position.x,mesh.position.y,mesh.position.z,a.explosionColor);}
-            if(t>=1&&!a.exploded){spawnKnightExplosion(a.enemyRow,a.enemyCol,a.explosionColor);SoundEffects.playCapture();knightScreenShake=0.18;a.exploded=true;a.phase=2;a.progress=0;}
+            // ── Phase 1: กระทบ — freeze + slam ──
+            const t=Math.min(a.progress*3,1); // เร็ว
+            // ดันตัวเข้าไปหาศัตรูอีกนิด (impact lunge)
+            const lunge=Math.sin(t*Math.PI)*0.18;
+            const dx=a.enemyX-a.impactX,dz=a.enemyZ-a.impactZ,dl=Math.sqrt(dx*dx+dz*dz)||1;
+            mesh.position.x=a.impactX+dx/dl*lunge;
+            mesh.position.z=a.impactZ+dz/dl*lunge;
+            mesh.position.y=a.startY+Math.sin(t*Math.PI)*0.05;
+            // เขย่าตัวกระแทก
+            mesh.rotation.x=-0.15+Math.sin(t*Math.PI*3)*0.20;
+            if(a.swordGrp){a.swordGrp.rotation.z=0.15-t*0.35;} // ฟันลง
+            if(t>=1&&!a.exploded){
+                spawnKnightExplosion(a.enemyRow,a.enemyCol,a.explosionColor);
+                SoundEffects.playCapture();knightScreenShake=0.16;
+                a.exploded=true;a.phase=2;a.progress=0;
+            }
+
         }else if(a.phase===2){
-            mesh.rotation.x=0.75;if(a.swordGrp){a.swordGrp.rotation.z=0.6;}
-            if(a.progress>=0.4){a.phase=3;a.progress=0;}
+            // ── Phase 2: menacing pause — ยืนนิ่งท่าพิชิต ──
+            mesh.rotation.x=-0.10;
+            if(a.swordGrp){a.swordGrp.rotation.z=-0.40;}
+            if(a.progress>=0.35){a.phase=3;a.progress=0;}
+
         }else if(a.phase===3){
-            const t=Math.min(a.progress*1.2,1),ease=1-Math.pow(1-t,3);
-            mesh.position.x=a.midX+(a.endX-a.midX)*ease;mesh.position.z=a.midZ+(a.endZ-a.midZ)*ease;
-            mesh.position.y=a.diveY+(a.endY-a.diveY)*ease+Math.sin(t*Math.PI)*0.22;
-            mesh.rotation.x=mesh.rotation.x*(1-ease*0.18);
+            // ── Phase 3: เดินไปยังตำแหน่งปลายทาง ──
+            const t=Math.min(a.progress*1.1,1),ease=1-Math.pow(1-t,3);
+            mesh.position.x=a.impactX+(a.endX-a.impactX)*ease;
+            mesh.position.z=a.impactZ+(a.endZ-a.impactZ)*ease;
+            mesh.position.y=a.startY+(a.endY-a.startY)*ease+Math.abs(Math.sin(t*Math.PI*1.5))*0.07;
+            mesh.rotation.x=mesh.rotation.x*(1-ease*0.25);
             if(t>=1){
-                mesh.position.set(a.endX,a.endY,a.endZ);mesh.rotation.x=0;mesh.userData.baseY=a.endY;
+                mesh.position.set(a.endX,a.endY,a.endZ);
+                mesh.rotation.x=0;
+                mesh.rotation.y=a.baseRotY; // กลับ rotation เดิม
+                mesh.userData.baseY=a.endY;
                 if(a.swordGrp){a.swordGrp.rotation.z=-0.20;}
                 knightJumpAnimations.splice(i,1);if(a.onComplete)a.onComplete();
             }
