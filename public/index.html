@@ -368,7 +368,12 @@ let gameMode='bot',aiDifficulty='medium',selectedFriend='',myRole='red';
 let jumpCount=0,comboPiece=null,comboTimer=null,comboTimeLeft=5.0;
 
 // ── ตัวแปรนับเทิร์น สำหรับตรวจเงื่อนไขเสมอ 1v1 ──
+// drawMoveCounter  : นับจำนวนเทิร์นที่เดินไปแล้วในสถานการณ์ 1v1
+// drawMoveLimit    : จำนวนเทิร์นสูงสุดที่อนุญาต (2 = KvK, 6 = KvN)
+// drawReason       : เหตุผลที่เสมอ สำหรับแสดงใน modal
 let drawMoveCounter=0;
+let drawMoveLimit=0;
+let drawReason='';
 
 let piece3DObjects=[],tiles3DObjects=[];
 const BOARD_SIZE=8;
@@ -1020,7 +1025,7 @@ function resetGame(){
     piece3DObjects.forEach(p=>removeKingAura(p));
     boardState=[[0,2,0,2,0,2,0,2],[2,0,2,0,2,0,2,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,0]];
     currentTurn=1;selectedPiece=null;isGameOver=false;jumpCount=0;comboPiece=null;stopComboTimer();
-    drawMoveCounter=0; // รีเซ็ตตัวนับ 1v1
+    drawMoveCounter=0;drawMoveLimit=0;drawReason=''; // รีเซ็ตตัวนับ draw
     document.getElementById('game-over-modal').style.display='none';
     adjustCameraForDevice();updateUI(false);drawPieces();updateNametags();resetTileHighlights();
     if(gameMode==='bot'&&myRole==='blue')triggerBotAiIfNeeded();else setTimeout(highlightMandatoryPieces,200);
@@ -1180,24 +1185,22 @@ function triggerGameOver(winnerColorName){
 }
 
 // ==========================================
-// [triggerDraw — เสมอ เหลือ 1v1 เดินแล้วกินไม่ได้]
+// ==========================================
+// [triggerDraw — เสมอตามเงื่อนไข King]
 // ==========================================
 function triggerDraw(){
     isGameOver=true;stopComboTimer();
     document.getElementById('ai-thinking').style.display='none';
-    // อัปเดต turn display
     const el=document.getElementById('turn-display');
     el.className='turn-draw';
     el.innerText='🤝 เสมอกัน!';
     el.style.animation='none';el.offsetHeight;el.style.animation='turnSlide 0.35s cubic-bezier(0.175,0.885,0.32,1.275) forwards';
-    // อัปเดต modal
     document.getElementById('modal-emoji').innerHTML='<span class="emoji-draw">🤝</span>';
     document.getElementById('modal-title').innerText='เสมอกัน!';
-    document.getElementById('winner-text').innerText='เหลือคนละ 1 ตัว — เดินแล้วยังกินกันไม่ได้!';
+    document.getElementById('winner-text').innerText=drawReason||'กินกันไม่ได้ — เสมอ!';
     document.getElementById('game-over-modal').style.display='flex';
     drawPieces();resetTileHighlights();
     SoundEffects.playDraw();
-    // แสดง particle เสมอ (สีน้ำเงินม่วง)
     showDrawEffect();
 }
 
@@ -1220,32 +1223,54 @@ function hasAnyMoveForTurn(turn){
 }
 
 // ==========================================
-// [endTurnProcess — ตรวจเงื่อนไขเสมอ 1v1]
+// [endTurnProcess — ตรวจเงื่อนไขเสมอ King vs King / King vs Normal]
 // ==========================================
 function endTurnProcess(){
-    let rPieces=0,bPieces=0;
+    let rPieces=0,bPieces=0,rKings=0,bKings=0;
     for(let r=0;r<8;r++)for(let c=0;c<8;c++){
-        if(boardState[r][c]===1||boardState[r][c]===3)rPieces++;
-        if(boardState[r][c]===2||boardState[r][c]===4)bPieces++;
+        if(boardState[r][c]===1){rPieces++;}
+        else if(boardState[r][c]===3){rPieces++;rKings++;}
+        else if(boardState[r][c]===2){bPieces++;}
+        else if(boardState[r][c]===4){bPieces++;bKings++;}
     }
-    if(rPieces===0){drawMoveCounter=0;triggerGameOver("สีน้ำตาล");return;}
-    if(bPieces===0){drawMoveCounter=0;triggerGameOver("สีแดง");return;}
+    if(rPieces===0){drawMoveCounter=0;drawMoveLimit=0;triggerGameOver("สีน้ำตาล");return;}
+    if(bPieces===0){drawMoveCounter=0;drawMoveLimit=0;triggerGameOver("สีแดง");return;}
     const nextTurn=currentTurn===1?2:1;
-    if(!hasAnyMoveForTurn(nextTurn)){drawMoveCounter=0;triggerGameOver(nextTurn===1?"สีน้ำตาล":"สีแดง");return;}
+    if(!hasAnyMoveForTurn(nextTurn)){drawMoveCounter=0;drawMoveLimit=0;triggerGameOver(nextTurn===1?"สีน้ำตาล":"สีแดง");return;}
 
-    // ── ตรวจสอบเงื่อนไขเสมอ: เหลือฝ่ายละ 1 ตัว ──
-    // นับรวมทุกประเภท (ปกติ + king = ยังเป็นแค่ 1 ตัว)
+    // ── ตรวจสอบเงื่อนไขเสมอ เฉพาะกรณี 1v1 ──
     if(rPieces===1&&bPieces===1){
-        drawMoveCounter++;
-        // ถ้า drawMoveCounter > 1 หมายความว่า
-        // ทั้งสองฝ่ายต่างเดินแล้ว (แดงเดิน→counter 1, น้ำตาลเดิน→counter 2)
-        // แต่ยังไม่มีใครถูกกิน → เสมอ
-        if(drawMoveCounter > 1){
-            triggerDraw();
-            return;
+        const bothKings = (rKings===1&&bKings===1);
+        const oneKing   = (rKings!==bKings); // ฝ่ายหนึ่ง king อีกฝ่ายปกติ
+
+        if(bothKings){
+            // King vs King: เดินได้ฝ่ายละ 1 ครั้ง (รวม 2 เทิร์น) → เสมอ
+            const newLimit=2;
+            if(drawMoveLimit!==newLimit){
+                // เพิ่งเข้าสู่สถานการณ์นี้ — reset counter
+                drawMoveCounter=0;drawMoveLimit=newLimit;
+            }
+            drawMoveCounter++;
+            drawReason='👑 คิงฮอตทั้งคู่ เดินแล้วกินกันไม่ได้ — เสมอ!';
+            if(drawMoveCounter>=drawMoveLimit){triggerDraw();return;}
+
+        }else if(oneKing){
+            // King vs Normal: เดินได้ฝ่ายละ 3 ครั้ง (รวม 6 เทิร์น) → เสมอ
+            const newLimit=6;
+            if(drawMoveLimit!==newLimit){
+                drawMoveCounter=0;drawMoveLimit=newLimit;
+            }
+            drawMoveCounter++;
+            drawReason='⚖️ คิงฮอต vs ฮอตธรรมดา — เดินครบ 3 รอบแล้ว กินกันไม่ได้ เสมอ!';
+            if(drawMoveCounter>=drawMoveLimit){triggerDraw();return;}
+
+        }else{
+            // ปกติ vs ปกติ (1v1 แต่ไม่ใช่ king เลย) — ไม่มีเงื่อนไขเสมอพิเศษ
+            drawMoveCounter=0;drawMoveLimit=0;
         }
     } else {
-        drawMoveCounter=0; // reset ถ้าจำนวนหมากเปลี่ยน
+        // จำนวนหมากมากกว่า 1v1 — reset draw counter ทุกครั้ง
+        drawMoveCounter=0;drawMoveLimit=0;
     }
 
     currentTurn=nextTurn;selectedPiece=null;updateUI(false);drawPieces();triggerBotAiIfNeeded();resetTileHighlights();setTimeout(highlightMandatoryPieces,150);
@@ -1466,13 +1491,22 @@ function updateUI(hasSelected){
     let name=currentTurn===1?"ฝ่ายสีแดง":"ฝ่ายสีน้ำตาล";
     el.className=currentTurn===1?"turn-red":"turn-blue";
     const mustJump=!comboPiece&&!hasSelected&&hasAnyJumpAvailable(currentTurn);
-    // แสดง hint เมื่อเหลือ 1v1
-    let rCount=0,bCount=0;
-    for(let r=0;r<8;r++)for(let c=0;c<8;c++){if(boardState[r][c]===1||boardState[r][c]===3)rCount++;if(boardState[r][c]===2||boardState[r][c]===4)bCount++;}
-    if(comboPiece)el.innerText=`💥 ${name} คอมโบต่อเนื่อง!`;
-    else if(mustJump&&!hasSelected)el.innerText=`⚔️ ${name} — มีการกินบังคับ!`;
-    else if(rCount===1&&bCount===1&&drawMoveCounter>=1)el.innerText=`⚖️ ${name} — เดินแล้วกินไม่ได้ → เสมอ!`;
-    else el.innerText=hasSelected?`${name} เลือกหมากแล้ว`:`${name} ถึงตาเดิน`;
+    if(comboPiece){el.innerText=`💥 ${name} คอมโบต่อเนื่อง!`;}
+    else if(mustJump&&!hasSelected){el.innerText=`⚔️ ${name} — มีการกินบังคับ!`;}
+    else if(drawMoveLimit>0&&drawMoveCounter>0){
+        // แสดงนับถอยหลังเทิร์นที่เหลือก่อนเสมอ
+        const remaining=drawMoveLimit-drawMoveCounter;
+        if(drawMoveLimit===2){
+            // King vs King
+            el.innerText=`👑 ${name} — KvK เหลืออีก ${remaining} เทิร์น → เสมอ!`;
+        }else{
+            // King vs Normal (limit=6, แต่ละฝ่ายมี 3 เทิร์น)
+            const roundsLeft=Math.ceil(remaining/2);
+            el.innerText=`⚖️ ${name} — เหลือ ${roundsLeft} รอบ → เสมอ!`;
+        }
+        if(remaining<=0){el.className='turn-draw';el.innerText='🤝 เสมอกัน!';}
+    }
+    else{el.innerText=hasSelected?`${name} เลือกหมากแล้ว`:`${name} ถึงตาเดิน`;}
     el.style.animation='none';el.offsetHeight;el.style.animation='turnSlide 0.35s cubic-bezier(0.175,0.885,0.32,1.275) forwards';
 }
 function checkSavedPlayer(){
