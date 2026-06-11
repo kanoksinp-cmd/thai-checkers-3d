@@ -14,6 +14,7 @@
         #turn-display { padding:9px 18px; font-size:13px; font-weight:700; border-radius:50px; text-align:center; width:100%; max-width:360px; letter-spacing:0.3px; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .turn-red { background:linear-gradient(135deg,rgba(210,25,25,0.93),rgba(150,15,10,0.97)); color:#fff; border:1px solid rgba(255,90,90,0.5); box-shadow:0 4px 18px rgba(255,20,20,0.35); }
         .turn-blue { background:linear-gradient(135deg,rgba(140,90,45,0.95),rgba(75,42,16,0.97)); color:#fff; border:1px solid rgba(220,175,115,0.5); box-shadow:0 4px 18px rgba(120,76,36,0.35); }
+        .turn-draw { background:linear-gradient(135deg,rgba(80,80,180,0.95),rgba(40,40,100,0.97)); color:#fff; border:1px solid rgba(160,160,255,0.5); box-shadow:0 4px 18px rgba(100,100,255,0.35); }
         #combo-timer-display { display:none; background:rgba(210,25,25,0.96); border:1px solid rgba(255,255,255,0.2); color:white; padding:4px 14px; border-radius:20px; font-size:11px; font-weight:700; box-shadow:0 3px 14px rgba(255,40,40,0.4); animation:pulse-border 0.9s infinite; pointer-events:none; }
         @keyframes pulse-border { 0%,100%{opacity:0.85;transform:scale(1)} 50%{opacity:1;transform:scale(1.04)} }
         @keyframes forceJumpWarning { 0%,100%{transform:scale(1)} 20%{transform:translateX(-6px) scale(1.04);background:rgba(210,0,0,0.97)} 40%{transform:translateX(6px) scale(1.04)} 60%{transform:translateX(-3px) scale(1.01)} 80%{transform:translateX(3px) scale(1.01)} }
@@ -57,8 +58,10 @@
         .btn-quit:hover { background:#ff4757; color:#fff; }
         @keyframes cryBounce { 0%,100%{transform:translateY(0) rotate(-2deg)} 50%{transform:translateY(-8px) rotate(2deg)} }
         @keyframes winPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.18)} }
+        @keyframes drawSpin { 0%{transform:rotate(0deg) scale(1)} 50%{transform:rotate(180deg) scale(1.15)} 100%{transform:rotate(360deg) scale(1)} }
         .emoji-win { animation:winPulse 0.7s ease-in-out infinite; display:inline-block; }
         .emoji-cry { animation:cryBounce 0.9s ease-in-out infinite; display:inline-block; }
+        .emoji-draw { animation:drawSpin 1.8s ease-in-out infinite; display:inline-block; }
         .stats-table { width:100%; border-collapse:separate; border-spacing:0; font-size:11px; margin-top:8px; border-radius:8px; overflow:hidden; }
         .stats-table thead th { background:rgba(230,197,148,0.12); color:#e6c594; padding:7px 6px; text-align:center; font-weight:700; font-size:10px; text-transform:uppercase; border-bottom:1px solid rgba(255,255,255,0.06); }
         .stats-table tbody td { padding:6px; text-align:center; color:#ccc; border-bottom:1px solid rgba(255,255,255,0.03); }
@@ -74,7 +77,6 @@
         .stats-summary-item { text-align:center; flex:1; background:rgba(255,255,255,0.03); border-radius:8px; padding:8px 4px; border:1px solid rgba(255,255,255,0.04); }
         .stats-summary-item .num { font-size:20px; font-weight:700; display:block; line-height:1.2; }
         .stats-summary-item .lbl { font-size:9px; color:#888; text-transform:uppercase; letter-spacing:0.5px; }
-        /* AI thinking indicator */
         #ai-thinking { display:none; position:fixed; top:14px; right:14px; z-index:25; background:rgba(138,43,226,0.92); color:#fff; padding:6px 14px; border-radius:20px; font-size:11px; font-weight:700; backdrop-filter:blur(8px); border:1px solid rgba(200,150,255,0.4); box-shadow:0 3px 14px rgba(138,43,226,0.5); animation:pulse-border 0.8s infinite; }
         /* VS SCREEN */
         #vs-screen { display:none; position:fixed;top:0;left:0;width:100%;height:100%; z-index:2000; background:#000; overflow:hidden; align-items:center;justify-content:center;flex-direction:column; }
@@ -190,7 +192,6 @@
                     <option value="hard">🔴 ยาก (Hard)</option>
                     <option value="genius">🟣 อัจฉริยะ ✨ (Genius AI)</option>
                 </select>
-                <!-- AI Level Description -->
                 <div id="ai-level-desc" style="margin-top:8px;padding:8px 10px;border-radius:8px;font-size:11px;line-height:1.5;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);color:#a4b0be;"></div>
             </div>
         </div>
@@ -260,6 +261,17 @@ const SoundEffects = {
             osc.type='sine';osc.frequency.setValueAtTime(freq,now+idx*0.05);
             gain.gain.setValueAtTime(0.12,now+idx*0.05);gain.gain.exponentialRampToValueAtTime(0.001,now+idx*0.05+0.25);
             osc.connect(gain);gain.connect(ctx.destination);osc.start(now+idx*0.05);osc.stop(now+idx*0.05+0.25);
+        });
+    },
+    playDraw(){
+        // เสียงกลาง ๆ สำหรับเสมอ — เพิ่มขึ้นแล้วค่อย ๆ ลง
+        this.init();if(!this.audioCtx)return;const ctx=this.audioCtx;if(ctx.state==='suspended')ctx.resume();
+        const now=ctx.currentTime;
+        [392,523.25,440,392].forEach((freq,idx)=>{
+            const osc=ctx.createOscillator(),gain=ctx.createGain();
+            osc.type='triangle';osc.frequency.setValueAtTime(freq,now+idx*0.13);
+            gain.gain.setValueAtTime(0.14,now+idx*0.13);gain.gain.exponentialRampToValueAtTime(0.001,now+idx*0.13+0.38);
+            osc.connect(gain);gain.connect(ctx.destination);osc.start(now+idx*0.13);osc.stop(now+idx*0.13+0.38);
         });
     },
     playWin(){
@@ -354,6 +366,10 @@ const ZOOM_MIN=2.0,ZOOM_MAX=28.0;let currentZoomLevel=0;
 let currentTurn=1,selectedPiece=null,isGameOver=false;
 let gameMode='bot',aiDifficulty='medium',selectedFriend='',myRole='red';
 let jumpCount=0,comboPiece=null,comboTimer=null,comboTimeLeft=5.0;
+
+// ── ตัวแปรนับเทิร์น สำหรับตรวจเงื่อนไขเสมอ 1v1 ──
+let drawMoveCounter=0;
+
 let piece3DObjects=[],tiles3DObjects=[];
 const BOARD_SIZE=8;
 const particles=[];
@@ -494,7 +510,6 @@ function spawnDiveTrail(x,y,z,colorHex){
 function animateKnightSlash(mesh,enemyRow,enemyCol,endX,endY,endZ,onComplete){
     const startX=mesh.position.x,startZ=mesh.position.z;
     const startY=mesh.userData.baseY!==undefined?mesh.userData.baseY:mesh.position.y;
-    // ตำแหน่งชนกับศัตรู (หยุดเล็กน้อยก่อนถึงศัตรู ½ ช่อง)
     const enemyX=enemyCol-3.5,enemyZ=enemyRow-3.5;
     const dx=enemyX-startX,dz=enemyZ-startZ,dist=Math.sqrt(dx*dx+dz*dz)||1;
     const impactX=enemyX-dx/dist*0.45,impactZ=enemyZ-dz/dist*0.45;
@@ -503,7 +518,6 @@ function animateKnightSlash(mesh,enemyRow,enemyCol,endX,endY,endZ,onComplete){
     const explosionColor=isEnemyRed?theme.pieceRed.color:theme.pieceBlue.color;
     let exploded=false,trailTimer=0;
     const swordGrp=mesh.userData.swordGrp||null;
-    // คำนวณ rotation.y ที่หันหน้าไปหาศัตรู
     const facingY=Math.atan2(dx,dz);
     knightJumpAnimations.push({mesh,phase:0,progress:0,exploded,trailTimer,
         startX,startY,startZ,impactX,impactZ,enemyX,enemyZ,
@@ -513,53 +527,37 @@ function animateKnightSlash(mesh,enemyRow,enemyCol,endX,endY,endZ,onComplete){
 function updateKnightJumpAnimations(){
     for(let i=knightJumpAnimations.length-1;i>=0;i--){
         const a=knightJumpAnimations[i];a.progress+=0.055;const mesh=a.mesh;
-
         if(a.phase===0){
-            // ── Phase 0: วิ่งพุ่งตรงไปหาศัตรู ──
-            // เพิ่ม speed ให้เร็วแบบ exponential (เหมือน sprint)
             const t=Math.min(a.progress,1);
-            const ease=t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2; // easeInOutQuad
+            const ease=t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
             mesh.position.x=a.startX+(a.impactX-a.startX)*ease;
             mesh.position.z=a.startZ+(a.impactZ-a.startZ)*ease;
-            // เด้งเล็กน้อยตามจังหวะวิ่ง (bob ขึ้นลง 2 ครั้ง)
             mesh.position.y=a.startY+Math.abs(Math.sin(t*Math.PI*2.5))*0.10;
-            // เอียงตัวไปข้างหน้าขณะพุ่ง
             mesh.rotation.x=-0.30*Math.sin(t*Math.PI);
-            // หันหน้าไปหาศัตรู
             mesh.rotation.y=a.facingY;
-            // ชูดาบไปข้างหน้าขณะวิ่ง
             if(a.swordGrp){a.swordGrp.rotation.z=-0.10-t*0.25;}
-            // trail effect ขณะวิ่ง
             a.trailTimer++;
             if(a.trailTimer%4===0){spawnDiveTrail(mesh.position.x,mesh.position.y,mesh.position.z,a.explosionColor);}
             if(t>=1){a.phase=1;a.progress=0;}
-
         }else if(a.phase===1){
-            // ── Phase 1: กระทบ — freeze + slam ──
-            const t=Math.min(a.progress*3,1); // เร็ว
-            // ดันตัวเข้าไปหาศัตรูอีกนิด (impact lunge)
+            const t=Math.min(a.progress*3,1);
             const lunge=Math.sin(t*Math.PI)*0.18;
             const dx=a.enemyX-a.impactX,dz=a.enemyZ-a.impactZ,dl=Math.sqrt(dx*dx+dz*dz)||1;
             mesh.position.x=a.impactX+dx/dl*lunge;
             mesh.position.z=a.impactZ+dz/dl*lunge;
             mesh.position.y=a.startY+Math.sin(t*Math.PI)*0.05;
-            // เขย่าตัวกระแทก
             mesh.rotation.x=-0.15+Math.sin(t*Math.PI*3)*0.20;
-            if(a.swordGrp){a.swordGrp.rotation.z=0.15-t*0.35;} // ฟันลง
+            if(a.swordGrp){a.swordGrp.rotation.z=0.15-t*0.35;}
             if(t>=1&&!a.exploded){
                 spawnKnightExplosion(a.enemyRow,a.enemyCol,a.explosionColor);
                 SoundEffects.playCapture();knightScreenShake=0.16;
                 a.exploded=true;a.phase=2;a.progress=0;
             }
-
         }else if(a.phase===2){
-            // ── Phase 2: menacing pause — ยืนนิ่งท่าพิชิต ──
             mesh.rotation.x=-0.10;
             if(a.swordGrp){a.swordGrp.rotation.z=-0.40;}
             if(a.progress>=0.35){a.phase=3;a.progress=0;}
-
         }else if(a.phase===3){
-            // ── Phase 3: เดินไปยังตำแหน่งปลายทาง ──
             const t=Math.min(a.progress*1.1,1),ease=1-Math.pow(1-t,3);
             mesh.position.x=a.impactX+(a.endX-a.impactX)*ease;
             mesh.position.z=a.impactZ+(a.endZ-a.impactZ)*ease;
@@ -567,8 +565,7 @@ function updateKnightJumpAnimations(){
             mesh.rotation.x=mesh.rotation.x*(1-ease*0.25);
             if(t>=1){
                 mesh.position.set(a.endX,a.endY,a.endZ);
-                mesh.rotation.x=0;
-                mesh.rotation.y=a.baseRotY; // กลับ rotation เดิม
+                mesh.rotation.x=0;mesh.rotation.y=a.baseRotY;
                 mesh.userData.baseY=a.endY;
                 if(a.swordGrp){a.swordGrp.rotation.z=-0.20;}
                 knightJumpAnimations.splice(i,1);if(a.onComplete)a.onComplete();
@@ -1023,6 +1020,7 @@ function resetGame(){
     piece3DObjects.forEach(p=>removeKingAura(p));
     boardState=[[0,2,0,2,0,2,0,2],[2,0,2,0,2,0,2,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,0]];
     currentTurn=1;selectedPiece=null;isGameOver=false;jumpCount=0;comboPiece=null;stopComboTimer();
+    drawMoveCounter=0; // รีเซ็ตตัวนับ 1v1
     document.getElementById('game-over-modal').style.display='none';
     adjustCameraForDevice();updateUI(false);drawPieces();updateNametags();resetTileHighlights();
     if(gameMode==='bot'&&myRole==='blue')triggerBotAiIfNeeded();else setTimeout(highlightMandatoryPieces,200);
@@ -1044,7 +1042,6 @@ function hasAnyJumpAvailable(turn,board){
     return false;
 }
 
-// ── checkMove now accepts optional boardRef for AI lookahead ──
 function checkMove(startRow,startCol,endRow,endCol,boardRef){
     const b=boardRef||boardState;
     const pType=b[startRow][startCol];
@@ -1181,28 +1178,83 @@ function triggerGameOver(winnerColorName){
     if(gameMode==='local'||didIWin){SoundEffects.playWin();startFireworks();showApplause();}else{SoundEffects.playLose();startCryAnim();}
     if(gameMode!=='local'){let opponentName=gameMode==='online'?(selectedFriend||'ไม่ทราบชื่อ'):gameMode==='bot'?`บอท AI (${aiDifficulty})`:'';if(opponentName)updateMatchStats(opponentName,didIWin);}
 }
+
+// ==========================================
+// [triggerDraw — เสมอ เหลือ 1v1 เดินแล้วกินไม่ได้]
+// ==========================================
+function triggerDraw(){
+    isGameOver=true;stopComboTimer();
+    document.getElementById('ai-thinking').style.display='none';
+    // อัปเดต turn display
+    const el=document.getElementById('turn-display');
+    el.className='turn-draw';
+    el.innerText='🤝 เสมอกัน!';
+    el.style.animation='none';el.offsetHeight;el.style.animation='turnSlide 0.35s cubic-bezier(0.175,0.885,0.32,1.275) forwards';
+    // อัปเดต modal
+    document.getElementById('modal-emoji').innerHTML='<span class="emoji-draw">🤝</span>';
+    document.getElementById('modal-title').innerText='เสมอกัน!';
+    document.getElementById('winner-text').innerText='เหลือคนละ 1 ตัว — เดินแล้วยังกินกันไม่ได้!';
+    document.getElementById('game-over-modal').style.display='flex';
+    drawPieces();resetTileHighlights();
+    SoundEffects.playDraw();
+    // แสดง particle เสมอ (สีน้ำเงินม่วง)
+    showDrawEffect();
+}
+
+// เอฟเฟกต์กระจายฟ้า-ม่วงเมื่อเสมอ
+function showDrawEffect(){
+    const words=['🤝','เสมอกัน!','🏳️','ไม่มีผู้แพ้','⚖️','เสมอ!'];let idx=0;
+    applauseInterval=setInterval(()=>{
+        if(!document.getElementById('game-over-modal')||document.getElementById('game-over-modal').style.display==='none'){clearInterval(applauseInterval);return;}
+        const span=document.createElement('div');span.innerText=words[idx%words.length];idx++;
+        span.style.cssText=`position:fixed;left:${10+Math.random()*80}%;top:${10+Math.random()*60}%;font-size:${16+Math.random()*20}px;font-weight:700;color:#aaccff;text-shadow:0 2px 8px rgba(0,0,0,0.7);z-index:1001;pointer-events:none;animation:apFloat 1.6s ease-out forwards;font-family:'Sarabun',sans-serif;`;
+        document.body.appendChild(span);setTimeout(()=>span.remove(),1700);
+    },420);
+}
+
 function hasAnyMoveForTurn(turn){
     const vals=turn===1?[1,3]:[2,4];
     for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(vals.includes(boardState[r][c]))
         for(let tr=0;tr<8;tr++)for(let tc=0;tc<8;tc++)if(checkMove(r,c,tr,tc).valid)return true;
     return false;
 }
+
+// ==========================================
+// [endTurnProcess — ตรวจเงื่อนไขเสมอ 1v1]
+// ==========================================
 function endTurnProcess(){
     let rPieces=0,bPieces=0;
-    for(let r=0;r<8;r++)for(let c=0;c<8;c++){if(boardState[r][c]===1||boardState[r][c]===3)rPieces++;if(boardState[r][c]===2||boardState[r][c]===4)bPieces++;}
-    if(rPieces===0){triggerGameOver("สีน้ำตาล");return;}if(bPieces===0){triggerGameOver("สีแดง");return;}
-    const nextTurn=currentTurn===1?2:1;if(!hasAnyMoveForTurn(nextTurn)){triggerGameOver(nextTurn===1?"สีน้ำตาล":"สีแดง");return;}
+    for(let r=0;r<8;r++)for(let c=0;c<8;c++){
+        if(boardState[r][c]===1||boardState[r][c]===3)rPieces++;
+        if(boardState[r][c]===2||boardState[r][c]===4)bPieces++;
+    }
+    if(rPieces===0){drawMoveCounter=0;triggerGameOver("สีน้ำตาล");return;}
+    if(bPieces===0){drawMoveCounter=0;triggerGameOver("สีแดง");return;}
+    const nextTurn=currentTurn===1?2:1;
+    if(!hasAnyMoveForTurn(nextTurn)){drawMoveCounter=0;triggerGameOver(nextTurn===1?"สีน้ำตาล":"สีแดง");return;}
+
+    // ── ตรวจสอบเงื่อนไขเสมอ: เหลือฝ่ายละ 1 ตัว ──
+    // นับรวมทุกประเภท (ปกติ + king = ยังเป็นแค่ 1 ตัว)
+    if(rPieces===1&&bPieces===1){
+        drawMoveCounter++;
+        // ถ้า drawMoveCounter > 1 หมายความว่า
+        // ทั้งสองฝ่ายต่างเดินแล้ว (แดงเดิน→counter 1, น้ำตาลเดิน→counter 2)
+        // แต่ยังไม่มีใครถูกกิน → เสมอ
+        if(drawMoveCounter > 1){
+            triggerDraw();
+            return;
+        }
+    } else {
+        drawMoveCounter=0; // reset ถ้าจำนวนหมากเปลี่ยน
+    }
+
     currentTurn=nextTurn;selectedPiece=null;updateUI(false);drawPieces();triggerBotAiIfNeeded();resetTileHighlights();setTimeout(highlightMandatoryPieces,150);
 }
 
 // ==========================================
 // [AI SYSTEM — 5 ระดับความยาก]
-// BEGINNER / EASY / MEDIUM / HARD / GENIUS
 // ==========================================
-
-// ── Board evaluation heuristics ──
 const CENTER_BONUS=[[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,1,1,1,1,0,0],[0,1,2,3,3,2,1,0],[0,1,2,3,3,2,1,0],[0,0,1,1,1,1,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0]];
-
 function evaluateBoard_AI(board){
     let score=0;
     for(let r=0;r<8;r++){
@@ -1210,29 +1262,19 @@ function evaluateBoard_AI(board){
             const v=board[r][c];if(v===0)continue;
             const isRed=(v===1||v===3),isKing=(v===3||v===4),mult=isRed?1:-1;
             let val=isKing?3.2:1.0;
-            // Advancement (non-king pieces gain value by advancing)
             if(!isKing){val+=isRed?(7-r)*0.09:r*0.09;}
-            // Center control
             val+=CENTER_BONUS[r][c]*0.12;
-            // Back row protection bonus
             if(isRed&&r===7)val+=0.28;
             if(!isRed&&r===0)val+=0.28;
-            // Edge penalty
             if(c===0||c===7)val-=0.18;
-            // Promotion proximity
             if(!isKing){if(isRed&&r<=1)val+=0.40;if(!isRed&&r>=6)val+=0.40;}
-            // Triangle formation (paired pieces protection)
             if(r<7&&c>0&&(board[r+1][c-1]===v||board[r+1][c+1]===v))val+=0.08;
             score+=mult*val;
         }
     }
     return score;
 }
-
-// ── Clone board ──
 function cloneBoard_AI(board){return board.map(r=>[...r]);}
-
-// ── Get all moves for a side ──
 function getAllMoves_AI(board,turnVal){
     const targets=turnVal===1?[1,3]:[2,4];
     const moves=[],jumpMoves=[];
@@ -1240,27 +1282,19 @@ function getAllMoves_AI(board,turnVal){
         if(!targets.includes(board[r][c]))continue;
         for(let tr=0;tr<8;tr++)for(let tc=0;tc<8;tc++){
             const res=checkMove(r,c,tr,tc,board);
-            if(res.valid){
-                const mv={sR:r,sC:c,eR:tr,eC:tc,res};
-                moves.push(mv);if(res.type==='jump')jumpMoves.push(mv);
-            }
+            if(res.valid){const mv={sR:r,sC:c,eR:tr,eC:tc,res};moves.push(mv);if(res.type==='jump')jumpMoves.push(mv);}
         }
     }
     return{moves,jumpMoves};
 }
-
-// ── Apply move to cloned board ──
 function applyMove_AI(board,mv){
-    const b=cloneBoard_AI(board);
-    const pType=b[mv.sR][mv.sC];
+    const b=cloneBoard_AI(board);const pType=b[mv.sR][mv.sC];
     b[mv.eR][mv.eC]=pType;b[mv.sR][mv.sC]=0;
     if(mv.res.eat)mv.res.eat.forEach(e=>{b[e.r][e.c]=0;});
     if(pType===1&&mv.eR===0)b[mv.eR][mv.eC]=3;
     if(pType===2&&mv.eR===7)b[mv.eR][mv.eC]=4;
     return b;
 }
-
-// ── Count pieces ──
 function countPieces_AI(board){
     let red=0,blue=0,redK=0,blueK=0;
     for(let r=0;r<8;r++)for(let c=0;c<8;c++){
@@ -1269,8 +1303,6 @@ function countPieces_AI(board){
     }
     return{red,blue,redK,blueK};
 }
-
-// ── Minimax with Alpha-Beta Pruning ──
 function minimax_AI(board,depth,alpha,beta,isMaximizing){
     const pc=countPieces_AI(board);
     if(pc.red+pc.redK===0)return -200;
@@ -1284,36 +1316,23 @@ function minimax_AI(board,depth,alpha,beta,isMaximizing){
     if(isMaximizing){
         let maxScore=-Infinity;
         for(const mv of candidates){
-            const newBoard=applyMove_AI(board,mv);
-            let score;
-            if(mv.res.type==='jump'){
-                // Check chain jumps
-                const{jumpMoves:combos}=getAllMoves_AI(newBoard,turnVal);
-                const comboFromDest=combos.filter(cm=>cm.sR===mv.eR&&cm.sC===mv.eC);
-                score=comboFromDest.length>0?minimax_AI(newBoard,depth,alpha,beta,true):minimax_AI(newBoard,depth-1,alpha,beta,false);
-            }else{score=minimax_AI(newBoard,depth-1,alpha,beta,false);}
-            if(score>maxScore)maxScore=score;
-            alpha=Math.max(alpha,score);if(beta<=alpha)break;
+            const newBoard=applyMove_AI(board,mv);let score;
+            if(mv.res.type==='jump'){const{jumpMoves:combos}=getAllMoves_AI(newBoard,turnVal);const comboFromDest=combos.filter(cm=>cm.sR===mv.eR&&cm.sC===mv.eC);score=comboFromDest.length>0?minimax_AI(newBoard,depth,alpha,beta,true):minimax_AI(newBoard,depth-1,alpha,beta,false);}
+            else{score=minimax_AI(newBoard,depth-1,alpha,beta,false);}
+            if(score>maxScore)maxScore=score;alpha=Math.max(alpha,score);if(beta<=alpha)break;
         }
         return maxScore;
     }else{
         let minScore=Infinity;
         for(const mv of candidates){
-            const newBoard=applyMove_AI(board,mv);
-            let score;
-            if(mv.res.type==='jump'){
-                const{jumpMoves:combos}=getAllMoves_AI(newBoard,turnVal);
-                const comboFromDest=combos.filter(cm=>cm.sR===mv.eR&&cm.sC===mv.eC);
-                score=comboFromDest.length>0?minimax_AI(newBoard,depth,alpha,beta,false):minimax_AI(newBoard,depth-1,alpha,beta,true);
-            }else{score=minimax_AI(newBoard,depth-1,alpha,beta,true);}
-            if(score<minScore)minScore=score;
-            beta=Math.min(beta,score);if(beta<=alpha)break;
+            const newBoard=applyMove_AI(board,mv);let score;
+            if(mv.res.type==='jump'){const{jumpMoves:combos}=getAllMoves_AI(newBoard,turnVal);const comboFromDest=combos.filter(cm=>cm.sR===mv.eR&&cm.sC===mv.eC);score=comboFromDest.length>0?minimax_AI(newBoard,depth,alpha,beta,false):minimax_AI(newBoard,depth-1,alpha,beta,true);}
+            else{score=minimax_AI(newBoard,depth-1,alpha,beta,true);}
+            if(score<minScore)minScore=score;beta=Math.min(beta,score);if(beta<=alpha)break;
         }
         return minScore;
     }
 }
-
-// ── HARD level: greedy scoring ──
 function scoreMove_HARD(board,mv,isRedBot){
     let score=0;
     if(mv.res.type==='jump')score+=10;
@@ -1325,113 +1344,58 @@ function scoreMove_HARD(board,mv,isRedBot){
     const{jumpMoves}=getAllMoves_AI(newBoard,isRedBot?1:2);
     score+=jumpMoves.filter(jm=>jm.sR===mv.eR&&jm.sC===mv.eC).length*3;
     if(mv.eC===0||mv.eC===7)score-=0.5;
-    // Avoid leaving pieces vulnerable
     const oppTurn=isRedBot?2:1;
     const{jumpMoves:oppJumps}=getAllMoves_AI(newBoard,oppTurn);
     oppJumps.forEach(oj=>{if(oj.res.eat&&oj.res.eat.some(e=>e.r===mv.eR&&e.c===mv.eC))score-=6;});
     return score;
 }
-
-// ── Main AI trigger (5 levels) ──
 function triggerBotAiIfNeeded(){
     if(gameMode!=='bot'||isGameOver)return;
     const isBotActive=(currentTurn===1&&myRole==='blue')||(currentTurn===2&&myRole==='red');
     if(!isBotActive)return;
-
     const isRedBot=(currentTurn===1);
     const targetValues=currentTurn===1?[1,3]:[2,4];
     let availableMoves=[],jumpMoves=[];
     for(let r=0;r<8;r++)for(let c=0;c<8;c++)if(targetValues.includes(boardState[r][c]))
         for(let tr=0;tr<8;tr++)for(let tc=0;tc<8;tc++){const res=checkMove(r,c,tr,tc);if(res.valid){const mv={sR:r,sC:c,eR:tr,eC:tc,res};availableMoves.push(mv);if(res.type==='jump')jumpMoves.push(mv);}}
     if(availableMoves.length===0)return;
-
-    // ── BEGINNER: random, occasionally ignores forced jumps ──
     if(aiDifficulty==='beginner'){
-        setTimeout(()=>{
-            let pool;
-            if(jumpMoves.length>0&&Math.random()<0.55){pool=jumpMoves;}
-            else{pool=availableMoves;}
-            const m=pool[Math.floor(Math.random()*pool.length)];
-            executeMove(m.sR,m.sC,m.eR,m.eC,m.res,true);
-        },600+Math.random()*400);
-        return;
+        setTimeout(()=>{let pool;if(jumpMoves.length>0&&Math.random()<0.55){pool=jumpMoves;}else{pool=availableMoves;}const m=pool[Math.floor(Math.random()*pool.length)];executeMove(m.sR,m.sC,m.eR,m.eC,m.res,true);},600+Math.random()*400);return;
     }
-
-    // ── EASY: always take jumps, otherwise random ──
     if(aiDifficulty==='easy'){
-        setTimeout(()=>{
-            const pool=jumpMoves.length>0?jumpMoves:availableMoves;
-            const m=pool[Math.floor(Math.random()*pool.length)];
-            executeMove(m.sR,m.sC,m.eR,m.eC,m.res,true);
-        },500+Math.random()*400);
-        return;
+        setTimeout(()=>{const pool=jumpMoves.length>0?jumpMoves:availableMoves;const m=pool[Math.floor(Math.random()*pool.length)];executeMove(m.sR,m.sC,m.eR,m.eC,m.res,true);},500+Math.random()*400);return;
     }
-
-    // ── MEDIUM: take jumps, prefer advancement, avoid edges ──
     if(aiDifficulty==='medium'){
         setTimeout(()=>{
             const pool=jumpMoves.length>0?jumpMoves:availableMoves;
-            const scored=pool.map(mv=>{
-                let s=mv.res.type==='jump'?5:0;
-                if(isRedBot)s+=(7-mv.eR)*0.3;else s+=mv.eR*0.3;
-                s+=Math.random()*1.5; // some randomness
-                if(mv.eC===0||mv.eC===7)s-=0.3;
-                return{mv,s};
-            });
-            scored.sort((a,b)=>b.s-a.s);
-            const topN=Math.max(1,Math.floor(scored.length*0.35));
-            const m=scored[Math.floor(Math.random()*topN)].mv;
+            const scored=pool.map(mv=>{let s=mv.res.type==='jump'?5:0;if(isRedBot)s+=(7-mv.eR)*0.3;else s+=mv.eR*0.3;s+=Math.random()*1.5;if(mv.eC===0||mv.eC===7)s-=0.3;return{mv,s};});
+            scored.sort((a,b)=>b.s-a.s);const topN=Math.max(1,Math.floor(scored.length*0.35));const m=scored[Math.floor(Math.random()*topN)].mv;
             executeMove(m.sR,m.sC,m.eR,m.eC,m.res,true);
-        },500+Math.random()*350);
-        return;
+        },500+Math.random()*350);return;
     }
-
-    // ── HARD: greedy scoring with lookahead ──
     if(aiDifficulty==='hard'){
         setTimeout(()=>{
             const pool=jumpMoves.length>0?jumpMoves:availableMoves;
             const scored=pool.map(mv=>({mv,s:scoreMove_HARD(boardState,mv,isRedBot)}));
-            scored.sort((a,b)=>b.s-a.s);
-            // pick from top 2 for slight randomness (prevents determinism)
-            const topK=Math.min(2,scored.length);
-            const m=scored[Math.floor(Math.random()*topK)].mv;
+            scored.sort((a,b)=>b.s-a.s);const topK=Math.min(2,scored.length);const m=scored[Math.floor(Math.random()*topK)].mv;
             executeMove(m.sR,m.sC,m.eR,m.eC,m.res,true);
-        },450+Math.random()*300);
-        return;
+        },450+Math.random()*300);return;
     }
-
-    // ── GENIUS: Minimax + Alpha-Beta depth 6 (async via setTimeout) ──
     if(aiDifficulty==='genius'){
         document.getElementById('ai-thinking').style.display='block';
         setTimeout(()=>{
-            // Use Minimax to find best move
             const pool=jumpMoves.length>0?jumpMoves:availableMoves;
-            const DEPTH=6;
-            let bestMove=null,bestScore=isRedBot?-Infinity:Infinity;
-
+            const DEPTH=6;let bestMove=null,bestScore=isRedBot?-Infinity:Infinity;
             for(const mv of pool){
-                const newBoard=applyMove_AI(boardState,mv);
-                let score;
-                if(mv.res.type==='jump'){
-                    const{jumpMoves:combos}=getAllMoves_AI(newBoard,currentTurn);
-                    const comboFromDest=combos.filter(cm=>cm.sR===mv.eR&&cm.sC===mv.eC);
-                    if(comboFromDest.length>0){
-                        score=isRedBot?minimax_AI(newBoard,DEPTH,-Infinity,Infinity,true):minimax_AI(newBoard,DEPTH,-Infinity,Infinity,false);
-                    }else{
-                        score=isRedBot?minimax_AI(newBoard,DEPTH-1,-Infinity,Infinity,false):minimax_AI(newBoard,DEPTH-1,-Infinity,Infinity,true);
-                    }
-                }else{
-                    score=isRedBot?minimax_AI(newBoard,DEPTH-1,-Infinity,Infinity,false):minimax_AI(newBoard,DEPTH-1,-Infinity,Infinity,true);
-                }
-                if(isRedBot){if(score>bestScore){bestScore=score;bestMove=mv;}}
-                else{if(score<bestScore){bestScore=score;bestMove=mv;}}
+                const newBoard=applyMove_AI(boardState,mv);let score;
+                if(mv.res.type==='jump'){const{jumpMoves:combos}=getAllMoves_AI(newBoard,currentTurn);const comboFromDest=combos.filter(cm=>cm.sR===mv.eR&&cm.sC===mv.eC);if(comboFromDest.length>0){score=isRedBot?minimax_AI(newBoard,DEPTH,-Infinity,Infinity,true):minimax_AI(newBoard,DEPTH,-Infinity,Infinity,false);}else{score=isRedBot?minimax_AI(newBoard,DEPTH-1,-Infinity,Infinity,false):minimax_AI(newBoard,DEPTH-1,-Infinity,Infinity,true);}}
+                else{score=isRedBot?minimax_AI(newBoard,DEPTH-1,-Infinity,Infinity,false):minimax_AI(newBoard,DEPTH-1,-Infinity,Infinity,true);}
+                if(isRedBot){if(score>bestScore){bestScore=score;bestMove=mv;}}else{if(score<bestScore){bestScore=score;bestMove=mv;}}
             }
-
             document.getElementById('ai-thinking').style.display='none';
             if(bestMove){executeMove(bestMove.sR,bestMove.sC,bestMove.eR,bestMove.eC,bestMove.res,true);}
             else if(availableMoves.length>0){const m=availableMoves[0];executeMove(m.sR,m.sC,m.eR,m.eC,m.res,true);}
-        }, 80); // small delay so UI updates first
-        return;
+        },80);return;
     }
 }
 
@@ -1502,8 +1466,12 @@ function updateUI(hasSelected){
     let name=currentTurn===1?"ฝ่ายสีแดง":"ฝ่ายสีน้ำตาล";
     el.className=currentTurn===1?"turn-red":"turn-blue";
     const mustJump=!comboPiece&&!hasSelected&&hasAnyJumpAvailable(currentTurn);
+    // แสดง hint เมื่อเหลือ 1v1
+    let rCount=0,bCount=0;
+    for(let r=0;r<8;r++)for(let c=0;c<8;c++){if(boardState[r][c]===1||boardState[r][c]===3)rCount++;if(boardState[r][c]===2||boardState[r][c]===4)bCount++;}
     if(comboPiece)el.innerText=`💥 ${name} คอมโบต่อเนื่อง!`;
     else if(mustJump&&!hasSelected)el.innerText=`⚔️ ${name} — มีการกินบังคับ!`;
+    else if(rCount===1&&bCount===1&&drawMoveCounter>=1)el.innerText=`⚖️ ${name} — เดินแล้วกินไม่ได้ → เสมอ!`;
     else el.innerText=hasSelected?`${name} เลือกหมากแล้ว`:`${name} ถึงตาเดิน`;
     el.style.animation='none';el.offsetHeight;el.style.animation='turnSlide 0.35s cubic-bezier(0.175,0.885,0.32,1.275) forwards';
 }
@@ -1653,7 +1621,6 @@ function showVsScreen(onDone){
 // เริ่มต้น
 applyTheme('knight');
 document.getElementById('theme-select').value='knight';
-// Set default difficulty description
 changeAiDifficulty('medium');
 updateTitleText();updateUI(false);animate();
 setTimeout(()=>{drawPieces();resetTileHighlights();setTimeout(highlightMandatoryPieces,200);},300);
