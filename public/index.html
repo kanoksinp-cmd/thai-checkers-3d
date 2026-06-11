@@ -352,7 +352,7 @@ initChessTextures();
 // [ธีม]
 // ==========================================
 const THEMES = {
-    royalwood:{dark:{color:0x4e2511,roughness:0.5,metalness:0.05,emissive:0x000000},light:{color:0xeedcb3,roughness:0.4,metalness:0.05,emissive:0x000000},bg:0x0a0705,pieceRed:{color:0xffffff,roughness:0.28,metalness:0.15},pieceBlue:{color:0xff6a00,roughness:0.30,metalness:0.20}},
+    royalwood:{dark:{color:0x4e2511,roughness:0.5,metalness:0.05,emissive:0x000000},light:{color:0xeedcb3,roughness:0.4,metalness:0.05,emissive:0x000000},bg:0x0a0705,pieceRed:{color:0xa8a8a8,roughness:0.28,metalness:0.18},pieceBlue:{color:0xff6a00,roughness:0.30,metalness:0.20}},
     obsidian:{dark:{color:0x06060a,roughness:0.04,metalness:0.95,emissive:0x000000},light:{color:0xdedede,roughness:0.08,metalness:0.9,emissive:0x111111},bg:0x08090d,pieceRed:{color:0xff2a2a,roughness:0.08,metalness:0.65,emissive:0x3a0000},pieceBlue:{color:0x1188e8,roughness:0.08,metalness:0.65,emissive:0x001a35}},
     chess:{dark:{color:0x2c1810,roughness:0.42,metalness:0.06,emissive:0x000000},light:{color:0xf0d9b5,roughness:0.36,metalness:0.04,emissive:0x000000},bg:0x07050a,pieceRed:{color:0xf5f0e8,roughness:0.20,metalness:0.18,emissive:0x111111},pieceBlue:{color:0xffd700,roughness:0.18,metalness:0.55,emissive:0x332200}},
     knight:{dark:{color:0x4e2511,roughness:0.5,metalness:0.05,emissive:0x000000},light:{color:0xeedcb3,roughness:0.4,metalness:0.05,emissive:0x000000},bg:0x0a0705,pieceRed:{color:0xffd700,roughness:0.15,metalness:0.80,emissive:0x332200},pieceBlue:{color:0xc8d0d8,roughness:0.12,metalness:0.88,emissive:0x0a0a10}}
@@ -382,7 +382,7 @@ const particles=[];
 let darkWoodTexture=null,lightWoodTexture=null,pieceRedCarvingTexture=null,pieceBlueCarvingTexture=null;
 function initProceduralTextures(){
     darkWoodTexture=createWoodTexture(true);lightWoodTexture=createWoodTexture(false);
-    pieceRedCarvingTexture=createPieceCarvingTexture('#ffffff','#aaaaaa');
+    pieceRedCarvingTexture=createPieceCarvingTexture('#a8a8a8','#707070');
     pieceBlueCarvingTexture=createPieceCarvingTexture('#ff6a00','#8b3300');
 }
 initProceduralTextures();
@@ -590,7 +590,126 @@ function applyScreenShake(){
 // [King Aura System]
 // ==========================================
 let kingAuraMeshes=new Map();
-function createKingAura(mesh,colorHex,isRed){
+// ── Chess King Aura — ออล่าแสงไฟลอยเหนือยอด Rook Tower ──
+let chessKingAuraMeshes=new Map();
+function createChessKingAura(mesh,colorHex,isRed){
+    removeChessKingAura(mesh);
+    const group=new THREE.Group();
+    const auraObjs={rings:[],orbs:[],flames:[],group};
+
+    // สีหลัก: แดง=ทองส้ม, น้ำตาล=ฟ้าเงิน
+    const coreColor  = isRed ? 0xffaa00 : 0x88ddff;
+    const outerColor = isRed ? 0xff4400 : 0x2266ff;
+    const glowColor  = isRed ? 0xffee88 : 0xaaeeff;
+
+    // ── วงแหวนออล่า 3 วง หมุนรอบยอดหอ ──
+    const ringDefs=[
+        {r:0.30, tube:0.022, speed:1.2,  tilt:0,            col:coreColor},
+        {r:0.40, tube:0.016, speed:-0.8, tilt:Math.PI/2.5,  col:outerColor},
+        {r:0.24, tube:0.014, speed:2.0,  tilt:Math.PI/4,    col:glowColor},
+    ];
+    ringDefs.forEach(({r,tube,speed,tilt,col})=>{
+        const geo=new THREE.TorusGeometry(r,tube,8,36);
+        const mat=new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:3.5,transparent:true,opacity:0.70,side:THREE.DoubleSide,depthWrite:false});
+        const ring=new THREE.Mesh(geo,mat);
+        ring.rotation.x=tilt;ring.userData.rotSpeed=speed;
+        group.add(ring);auraObjs.rings.push(ring);
+    });
+
+    // ── ลูกไฟ orbs 8 ดวงโคจรรอบ ──
+    for(let i=0;i<8;i++){
+        const size=0.030+Math.random()*0.022;
+        const orbGeo=new THREE.SphereGeometry(size,8,6);
+        const col=i%3===0?glowColor:(i%3===1?coreColor:outerColor);
+        const orbMat=new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:4.0,transparent:true,opacity:0.92,depthWrite:false});
+        const orb=new THREE.Mesh(orbGeo,orbMat);
+        const radiusBase=0.28+(i%2)*0.10;
+        orb.userData={phase:(i/8)*Math.PI*2, radius:radiusBase, speed:1.0+(i*0.18), baseY:0.10+Math.sin(i*0.8)*0.18};
+        group.add(orb);auraObjs.orbs.push(orb);
+    }
+
+    // ── เปลวไฟ 6 แท่ง ลอยขึ้นเหนือยอด ──
+    for(let i=0;i<6;i++){
+        const angle=(i/6)*Math.PI*2;
+        const flameR=0.14+(i%2)*0.06;
+        const flameGeo=new THREE.ConeGeometry(0.035-i*0.003,0.22+i*0.02,6);
+        const fcol=i%2===0?coreColor:outerColor;
+        const flameMat=new THREE.MeshStandardMaterial({color:fcol,emissive:fcol,emissiveIntensity:5.0,transparent:true,opacity:0.55,depthWrite:false,side:THREE.DoubleSide});
+        const flame=new THREE.Mesh(flameGeo,flameMat);
+        flame.position.set(Math.cos(angle)*flameR, 0.24+(i*0.04), Math.sin(angle)*flameR);
+        flame.userData={flamePhase:(i/6)*Math.PI*2, baseY:flame.position.y};
+        group.add(flame);auraObjs.flames.push(flame);
+    }
+    // เปลวกลาง (ใหญ่สุด)
+    const centerFlameGeo=new THREE.ConeGeometry(0.05,0.38,8);
+    const centerFlameMat=new THREE.MeshStandardMaterial({color:glowColor,emissive:glowColor,emissiveIntensity:6.0,transparent:true,opacity:0.65,depthWrite:false});
+    const centerFlame=new THREE.Mesh(centerFlameGeo,centerFlameMat);
+    centerFlame.position.y=0.30;centerFlame.userData={flamePhase:0,baseY:0.30,isCenter:true};
+    group.add(centerFlame);auraObjs.flames.push(centerFlame);
+
+    // ── แสง Point Light เปลี่ยนความสว่าง ──
+    const auraLight=new THREE.PointLight(coreColor,2.0,2.8);auraLight.position.y=0.3;group.add(auraLight);auraObjs.auraLight=auraLight;
+    const auraLight2=new THREE.PointLight(outerColor,1.0,2.0);auraLight2.position.y=0.5;group.add(auraLight2);auraObjs.auraLight2=auraLight2;
+
+    // วาง group เหนือยอด tower (tower scale 0.80, ความสูงรวม ~1.36 หน่วย → ×0.80 = ~1.09)
+    group.position.copy(mesh.position);
+    group.position.y+=1.12;
+    scene.add(group);
+    auraObjs.group=group;auraObjs.yOffset=1.12;auraObjs.coreColor=coreColor;auraObjs.outerColor=outerColor;auraObjs.glowColor=glowColor;
+    chessKingAuraMeshes.set(mesh,auraObjs);
+}
+function removeChessKingAura(mesh){
+    if(!chessKingAuraMeshes.has(mesh))return;
+    const aura=chessKingAuraMeshes.get(mesh);scene.remove(aura.group);
+    aura.rings.forEach(r=>{r.geometry.dispose();r.material.dispose();});
+    aura.orbs.forEach(o=>{o.geometry.dispose();o.material.dispose();});
+    aura.flames.forEach(f=>{f.geometry.dispose();f.material.dispose();});
+    chessKingAuraMeshes.delete(mesh);
+}
+function updateChessKingAuras(){
+    const t=Date.now()*0.001;
+    chessKingAuraMeshes.forEach((aura,mesh)=>{
+        if(!mesh.parent){removeChessKingAura(mesh);return;}
+        aura.group.position.x=mesh.position.x;
+        aura.group.position.z=mesh.position.z;
+        aura.group.position.y=mesh.position.y+(aura.yOffset||1.12);
+        // หมุนวงแหวน
+        aura.rings.forEach(ring=>{ring.rotation.y+=ring.userData.rotSpeed*0.016;});
+        // โคจร orbs
+        aura.orbs.forEach(orb=>{
+            orb.userData.phase+=orb.userData.speed*0.016;
+            const ph=orb.userData.phase,r=orb.userData.radius;
+            orb.position.x=Math.cos(ph)*r;orb.position.z=Math.sin(ph)*r;
+            orb.position.y=orb.userData.baseY+Math.sin(t*2.2+ph)*0.10;
+            const p=(Math.sin(t*3.5+ph)+1)/2;
+            orb.material.emissiveIntensity=3.0+p*3.0;orb.material.opacity=0.75+p*0.20;
+        });
+        // เปลวไฟสั่น + ลอยขึ้น
+        aura.flames.forEach(flame=>{
+            flame.userData.flamePhase+=0.055;
+            const fp=flame.userData.flamePhase;
+            const wobble=Math.sin(fp)*0.06;
+            flame.position.x+=wobble*0.015;
+            flame.position.z+=Math.cos(fp*1.3)*0.015;
+            flame.position.y=flame.userData.baseY+Math.abs(Math.sin(fp*0.8))*0.10;
+            flame.rotation.z=wobble*0.5;
+            const pulse=(Math.sin(t*4+fp)+1)/2;
+            flame.material.emissiveIntensity=4.0+pulse*3.5;
+            flame.material.opacity=0.42+pulse*0.30;
+            flame.scale.x=0.85+pulse*0.30;flame.scale.z=0.85+pulse*0.30;
+            flame.scale.y=0.90+pulse*0.20;
+        });
+        // แสงกระพริบ
+        if(aura.auraLight){aura.auraLight.intensity=1.8+Math.sin(t*3.5)*0.8;}
+        if(aura.auraLight2){aura.auraLight2.intensity=0.8+Math.sin(t*2.8+1.2)*0.5;}
+        // วงแหวน pulse
+        aura.rings.forEach((ring,idx)=>{
+            ring.material.opacity=0.50+Math.sin(t*2.0+idx*1.2)*0.22;
+            ring.material.emissiveIntensity=2.8+Math.sin(t*2.5+idx)*1.2;
+        });
+    });
+}
+function createKingAura(mesh,colorHex,isRed,yOffset){
     removeKingAura(mesh);
     const group=new THREE.Group(),auraObjs={rings:[],orbs:[],group};
     const ringColors=[colorHex,isRed?0xffa500:0x88ccff,0xffffff];
@@ -609,8 +728,9 @@ function createKingAura(mesh,colorHex,isRed){
         group.add(orb);auraObjs.orbs.push(orb);
     }
     const auraLight=new THREE.PointLight(colorHex,1.2,1.8);auraLight.position.y=0.5;group.add(auraLight);auraObjs.auraLight=auraLight;
-    group.position.copy(mesh.position);group.position.y+=0.55;scene.add(group);
-    auraObjs.group=group;auraObjs.yOffset=0.12;kingAuraMeshes.set(mesh,auraObjs);
+    const resolvedOffset=yOffset!==undefined?yOffset:0.12;
+    group.position.copy(mesh.position);group.position.y+=resolvedOffset+0.55;scene.add(group);
+    auraObjs.group=group;auraObjs.yOffset=resolvedOffset;kingAuraMeshes.set(mesh,auraObjs);
 }
 function removeKingAura(mesh){
     if(!kingAuraMeshes.has(mesh))return;
@@ -780,6 +900,169 @@ function createChessCrown(isWhite){
 }
 
 // ==========================================
+// [Staunton Piece — ทรงคลาสสิก ตามรูป Royal Mahogany]
+// สร้างหมากทรงสูงเพรียว Staunton style
+// isKingPiece: เพิ่มมงกุฎ + ไม้กางเขนบนยอด
+// ==========================================
+function createStauntonPiece(matColor,roughness,metalness,isKingPiece){
+    const group=new THREE.Group();
+    const mat=new THREE.MeshStandardMaterial({color:matColor,roughness,metalness});
+    const matShiny=new THREE.MeshStandardMaterial({color:matColor,roughness:Math.max(0.05,roughness-0.12),metalness:Math.min(1,metalness+0.1)});
+    const goldC=metalness>0.3?0xb8882a:0xd4a843;
+    const goldMat=new THREE.MeshStandardMaterial({color:goldC,roughness:0.18,metalness:0.92});
+
+    // ── ฐาน disc กว้าง (2 ชั้น) ──
+    const base1=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.38,0.06,28),mat);
+    base1.position.y=0.03;group.add(base1);
+    const base2=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.34,0.07,28),mat);
+    base2.position.y=0.095;group.add(base2);
+    // groove ร่องเล็กที่ฐาน
+    const groove1=new THREE.Mesh(new THREE.CylinderGeometry(0.265,0.265,0.022,28),matShiny);
+    groove1.position.y=0.14;group.add(groove1);
+
+    // ── ลำตัวเรียว (taper column) ──
+    const col=new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.25,0.50,24),mat);
+    col.position.y=0.38;group.add(col);
+
+    // ── ปุ่มคอ (collar / waist) ──
+    const collar=new THREE.Mesh(new THREE.CylinderGeometry(0.185,0.165,0.06,22),mat);
+    collar.position.y=0.655;group.add(collar);
+    const collarGroove=new THREE.Mesh(new THREE.CylinderGeometry(0.190,0.190,0.018,22),matShiny);
+    collarGroove.position.y=0.695;group.add(collarGroove);
+
+    // ── คอเรียว ──
+    const neck=new THREE.Mesh(new THREE.CylinderGeometry(0.120,0.160,0.22,20),mat);
+    neck.position.y=0.82;group.add(neck);
+
+    if(!isKingPiece){
+        // ── หมากปกติ: หัวทรงกลม ──
+        const head=new THREE.Mesh(new THREE.SphereGeometry(0.185,20,16),mat);
+        head.scale.set(1,0.96,1);head.position.y=1.05;group.add(head);
+        // แถบทองบาง ๆ ที่คอ
+        const band=new THREE.Mesh(new THREE.CylinderGeometry(0.192,0.192,0.022,22),goldMat);
+        band.position.y=0.745;group.add(band);
+    }else{
+        // ── คิงฮอต: หัวใหญ่ขึ้น + มงกุฎ + ไม้กางเขน ──
+        // คอยาวกว่า
+        const neckExt=new THREE.Mesh(new THREE.CylinderGeometry(0.110,0.120,0.10,20),mat);
+        neckExt.position.y=0.98;group.add(neckExt);
+        // หัวทรงกลมใหญ่
+        const head=new THREE.Mesh(new THREE.SphereGeometry(0.195,22,18),mat);
+        head.scale.set(1,0.98,1);head.position.y=1.15;group.add(head);
+        // แถบทองที่คอ
+        const band=new THREE.Mesh(new THREE.CylinderGeometry(0.192,0.192,0.022,22),goldMat);
+        band.position.y=0.745;group.add(band);
+        // ── มงกุฎ ring ──
+        const crownRing=new THREE.Mesh(new THREE.CylinderGeometry(0.175,0.165,0.058,24),goldMat);
+        crownRing.position.y=1.29;group.add(crownRing);
+        // spike มงกุฎ 5 อัน
+        for(let i=0;i<5;i++){
+            const a=(i/5)*Math.PI*2;
+            const spike=new THREE.Mesh(new THREE.ConeGeometry(0.020,0.120,7),goldMat);
+            spike.position.set(Math.cos(a)*0.150,1.39,Math.sin(a)*0.150);
+            group.add(spike);
+            // อัญมณี 5 เม็ดที่ฐาน spike (+ 1 เม็ดกลางไม้กางเขน = 6 เม็ดรวม)
+            const gemColors=[0xff2200,0x2244ff,0xff2200,0x22dd44,0xff2200];
+            const gemMat=new THREE.MeshStandardMaterial({color:gemColors[i],emissive:gemColors[i],emissiveIntensity:1.8,roughness:0,metalness:0,transparent:true,opacity:0.88});
+            const gem=new THREE.Mesh(new THREE.OctahedronGeometry(0.024,0),gemMat);
+            gem.position.set(Math.cos(a)*0.150,1.295,Math.sin(a)*0.150);
+            group.add(gem);
+        }
+        // อัญมณีเม็ดที่ 6 — กลางมงกุฎ (ที่โคนไม้กางเขน)
+        const gemCenter=new THREE.Mesh(new THREE.OctahedronGeometry(0.030,0),
+            new THREE.MeshStandardMaterial({color:0xffdd00,emissive:0xffaa00,emissiveIntensity:2.2,roughness:0,metalness:0,transparent:true,opacity:0.90}));
+        gemCenter.position.y=1.455;group.add(gemCenter);
+        // ── ไม้กางเขน บนยอดมงกุฎ ──
+        const crossV=new THREE.Mesh(new THREE.BoxGeometry(0.038,0.240,0.038),goldMat);
+        crossV.position.y=1.57;group.add(crossV);
+        const crossH=new THREE.Mesh(new THREE.BoxGeometry(0.200,0.038,0.038),goldMat);
+        crossH.position.y=1.64;group.add(crossH);
+        // ลูกกลมทองบนยอดไม้กางเขน
+        const crossOrb=new THREE.Mesh(new THREE.SphereGeometry(0.028,10,8),goldMat);
+        crossOrb.position.y=1.70;group.add(crossOrb);
+    }
+
+    group.scale.setScalar(0.82);
+    return group;
+}
+
+// ==========================================
+// [Rook Tower — Medieval Battlement Piece]
+// ใช้แทนหมากฮอสใน chess theme
+// ==========================================
+function createRookTower(matColor,roughness,metalness,emissiveHex){
+    const group=new THREE.Group();
+    const mat=new THREE.MeshStandardMaterial({color:matColor,roughness,metalness,emissive:emissiveHex,emissiveIntensity:0.22});
+    const matDark=new THREE.MeshStandardMaterial({color:matColor,roughness:roughness+0.12,metalness:metalness*0.55,emissive:emissiveHex,emissiveIntensity:0.08});
+    const goldMat=new THREE.MeshStandardMaterial({color:metalness>0.4?0xb8882a:0xd4a843,roughness:0.20,metalness:0.90,emissive:metalness>0.4?0x221100:0x2b2000,emissiveIntensity:0.15});
+
+    // ── ฐาน pedestal ──
+    // disc ล่างสุดกว้าง
+    const base1=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.36,0.07,24),mat);base1.position.y=0.035;group.add(base1);
+    // taper กลาง
+    const base2=new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.32,0.09,24),mat);base2.position.y=0.115;group.add(base2);
+    // groove ring ประดับ
+    const groove=new THREE.Mesh(new THREE.CylinderGeometry(0.255,0.255,0.032,24),matDark);groove.position.y=0.170;group.add(groove);
+    // แถบทองที่ฐาน
+    const goldBase=new THREE.Mesh(new THREE.CylinderGeometry(0.244,0.244,0.024,24),goldMat);goldBase.position.y=0.175;group.add(goldBase);
+    // คอลัมน์ฐาน
+    const col=new THREE.Mesh(new THREE.CylinderGeometry(0.20,0.24,0.22,20),mat);col.position.y=0.30;group.add(col);
+
+    // ── ลำตัวหอคอย ──
+    const tower=new THREE.Mesh(new THREE.CylinderGeometry(0.215,0.215,0.42,20),mat);tower.position.y=0.62;group.add(tower);
+    // แถบตรงกลางหอคอย (ลาย medieval)
+    const midBand=new THREE.Mesh(new THREE.CylinderGeometry(0.228,0.228,0.030,20),goldMat);midBand.position.y=0.60;group.add(midBand);
+    // arch windows — 4 ช่อง (BoxGeometry บาง ๆ แกะเข้าหอคอย)
+    for(let i=0;i<4;i++){
+        const angle=(i/4)*Math.PI*2;
+        const archMat=new THREE.MeshStandardMaterial({color:0x060402,roughness:0.9,metalness:0.0});
+        const arch=new THREE.Mesh(new THREE.BoxGeometry(0.060,0.130,0.045),archMat);
+        arch.position.set(Math.cos(angle)*0.195,0.62,Math.sin(angle)*0.195);
+        arch.rotation.y=-angle;
+        group.add(arch);
+        // โค้งบนช่องหน้าต่าง
+        const archTop=new THREE.Mesh(new THREE.CylinderGeometry(0.030,0.030,0.045,10,1,false,0,Math.PI),archMat);
+        archTop.position.set(Math.cos(angle)*0.195,0.70,Math.sin(angle)*0.195);
+        archTop.rotation.x=Math.PI/2;archTop.rotation.z=-angle;
+        group.add(archTop);
+    }
+
+    // ── ยอดหอคอย battlement ring ──
+    const topRing=new THREE.Mesh(new THREE.CylinderGeometry(0.248,0.228,0.060,20),mat);topRing.position.y=0.87;group.add(topRing);
+    // แถบทองบนยอด
+    const goldTop=new THREE.Mesh(new THREE.CylinderGeometry(0.252,0.252,0.024,20),goldMat);goldTop.position.y=0.905;group.add(goldTop);
+
+    // ── เมอร์ลอน (merlons) 4 ช่อง — หัวหอคอย ──
+    for(let i=0;i<4;i++){
+        const angle=(i/4)*Math.PI*2+(Math.PI/4);
+        const mx=Math.cos(angle)*0.21,mz=Math.sin(angle)*0.21;
+        // เสาเมอร์ลอน
+        const merlon=new THREE.Mesh(new THREE.BoxGeometry(0.095,0.175,0.095),mat);
+        merlon.position.set(mx,1.01,mz);merlon.rotation.y=-angle+Math.PI/4;
+        group.add(merlon);
+        // หมวกเมอร์ลอนเล็กน้อย
+        const mCap=new THREE.Mesh(new THREE.BoxGeometry(0.105,0.022,0.105),matDark);
+        mCap.position.set(mx,1.10,mz);mCap.rotation.y=-angle+Math.PI/4;
+        group.add(mCap);
+        // แถบทองบนเมอร์ลอน
+        const mGold=new THREE.Mesh(new THREE.BoxGeometry(0.098,0.016,0.098),goldMat);
+        mGold.position.set(mx,1.085,mz);mGold.rotation.y=-angle+Math.PI/4;
+        group.add(mGold);
+    }
+    // ช่องระหว่างเมอร์ลอน (crenels) — เป็น gap ธรรมชาติจากการไม่วางเสา
+
+    // ── ธงเสาเล็กบนยอด ──
+    const flagPole=new THREE.Mesh(new THREE.CylinderGeometry(0.010,0.010,0.22,6),goldMat);flagPole.position.set(0,1.22,0);group.add(flagPole);
+    // ลูกทรงกลมบนธง
+    const flagOrb=new THREE.Mesh(new THREE.SphereGeometry(0.026,10,8),goldMat);flagOrb.position.set(0,1.35,0);group.add(flagOrb);
+
+    // ── ขนาดรวม: ปรับ scale ให้พอดีกับ board ──
+    group.scale.setScalar(0.80);
+    group.position.y=0.04;
+    return group;
+}
+
+// ==========================================
 // [Socket]
 // ==========================================
 let onlineFriendsList=[];
@@ -914,6 +1197,7 @@ function updateParticles(){
 let blinkMeshMap=new Map();
 function drawPieces(){
     piece3DObjects.forEach(p=>removeKingAura(p));
+    piece3DObjects.forEach(p=>removeChessKingAura(p));
     blinkMeshMap.clear();
     piece3DObjects.forEach(p=>scene.remove(p));
     piece3DObjects=[];
@@ -925,20 +1209,23 @@ function drawPieces(){
             const isRed=(val===1||val===3),isKing=(val===3||val===4);
             if(selectedTheme==='chess'){
                 const matConfig=isRed?theme.pieceRed:theme.pieceBlue;
-                if(!isKing){pieceMesh=createHorseHead(matConfig.color,matConfig.roughness,matConfig.metalness,matConfig.emissive||0x000000);if(!isRed)pieceMesh.rotation.y=Math.PI;pieceMesh.position.set(c-3.5,0,r-3.5);}
-                else{const group=new THREE.Group();const horseGroup=createHorseHead(matConfig.color,matConfig.roughness,matConfig.metalness,matConfig.emissive||0x000000);if(!isRed)horseGroup.rotation.y=Math.PI;group.add(horseGroup);const crown=createChessCrown(isRed);crown.position.y=0.75;crown.scale.setScalar(0.60);group.add(crown);pieceMesh=group;pieceMesh.position.set(c-3.5,0,r-3.5);}
+                pieceMesh=createRookTower(matConfig.color,matConfig.roughness,matConfig.metalness,matConfig.emissive||0x000000);
+                pieceMesh.position.set(c-3.5,0,r-3.5);
             }else if(selectedTheme==='knight'){
                 const matConfig=isRed?theme.pieceRed:theme.pieceBlue;
                 if(isKing){pieceMesh=createKingFigure(matConfig.color,matConfig.emissive||0x000000);}
                 else{pieceMesh=createKnightFigure(matConfig.color,matConfig.emissive||0x000000);}
                 pieceMesh.rotation.y=isRed?Math.PI:0;
                 pieceMesh.position.set(c-3.5,0.12,r-3.5);
+            }else if(selectedTheme==='royalwood'){
+                const mc=isRed?theme.pieceRed:theme.pieceBlue;
+                pieceMesh=createStauntonPiece(mc.color,mc.roughness,mc.metalness,isKing);
+                pieceMesh.position.set(c-3.5,0,r-3.5);
             }else{
-                let sideMat,topMat;
-                if(selectedTheme==='royalwood'){const mc=isRed?theme.pieceRed:theme.pieceBlue;sideMat=new THREE.MeshStandardMaterial({color:mc.color,roughness:mc.roughness,metalness:mc.metalness});topMat=new THREE.MeshStandardMaterial({map:isRed?pieceRedCarvingTexture:pieceBlueCarvingTexture,roughness:mc.roughness-0.05,metalness:mc.metalness});}
-                else{const mc=isRed?theme.pieceRed:theme.pieceBlue;sideMat=new THREE.MeshStandardMaterial(mc);topMat=sideMat;}
+                const mc=isRed?theme.pieceRed:theme.pieceBlue;
+                const sideMat=new THREE.MeshStandardMaterial(mc);
                 const pieceGeo=new THREE.CylinderGeometry(0.35,0.35,0.15,32);
-                const materials=[sideMat,topMat,sideMat];
+                const materials=[sideMat,sideMat,sideMat];
                 if(!isKing){pieceMesh=new THREE.Mesh(pieceGeo,materials);pieceMesh.position.set(c-3.5,0.075,r-3.5);}
                 else{const group=new THREE.Group();const baseCylinder=new THREE.Mesh(pieceGeo,materials);baseCylinder.position.y=0.075;group.add(baseCylinder);group.add(createGoldenCrown());pieceMesh=group;pieceMesh.position.set(c-3.5,0,r-3.5);}
             }
@@ -946,7 +1233,10 @@ function drawPieces(){
             pieceMesh.castShadow=true;pieceMesh.receiveShadow=true;
             pieceMesh.traverse(child=>{if(child.isMesh){child.castShadow=true;child.receiveShadow=true;}});
             scene.add(pieceMesh);piece3DObjects.push(pieceMesh);
-            if(isKing&&selectedTheme==='knight'){const matConfig=isRed?theme.pieceRed:theme.pieceBlue;createKingAura(pieceMesh,matConfig.color,isRed);}
+            if(isKing&&selectedTheme==='knight'){const matConfig=isRed?theme.pieceRed:theme.pieceBlue;createKingAura(pieceMesh,matConfig.color,isRed,0.12);}
+            if(isKing&&selectedTheme==='chess'){const matConfig=isRed?theme.pieceRed:theme.pieceBlue;createChessKingAura(pieceMesh,matConfig.color,isRed);}
+            // royalwood king: Staunton scale 0.82 × top ~1.70 ≈ 1.39 → aura เหนือไม้กางเขน
+            if(isKing&&selectedTheme==='royalwood'){const matConfig=isRed?theme.pieceRed:theme.pieceBlue;createKingAura(pieceMesh,matConfig.color,isRed,1.20);}
         }
     }
 }
@@ -1023,6 +1313,7 @@ function startGameSession(){
 }
 function resetGame(){
     piece3DObjects.forEach(p=>removeKingAura(p));
+    piece3DObjects.forEach(p=>removeChessKingAura(p));
     boardState=[[0,2,0,2,0,2,0,2],[2,0,2,0,2,0,2,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,1,0,1,0,1,0,1],[1,0,1,0,1,0,1,0]];
     currentTurn=1;selectedPiece=null;isGameOver=false;jumpCount=0;comboPiece=null;stopComboTimer();
     drawMoveCounter=0;drawMoveLimit=0;drawReason=''; // รีเซ็ตตัวนับ draw
@@ -1034,6 +1325,7 @@ function restartFromModal(){stopFxAnimations();document.getElementById('game-ove
 function quitGame(){
     stopFxAnimations();document.getElementById('game-over-modal').style.display='none';isGameOver=false;
     piece3DObjects.forEach(p=>removeKingAura(p));
+    piece3DObjects.forEach(p=>removeChessKingAura(p));
     boardState=[[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0]];
     drawPieces();resetTileHighlights();
     document.getElementById('turn-display').innerText='กด "เริ่มเกมใหม่" เพื่อเล่นอีกครั้ง';document.getElementById('turn-display').className='turn-blue';
@@ -1102,7 +1394,7 @@ function executeMove(sR,sC,eR,eC,result,shouldBroadcast=true){
                 boardState[enemy.r][enemy.c]=0;
                 if(selectedTheme!=='knight')spawnEatParticles(enemy.r,enemy.c,eatenColorHex);
                 const enemyMesh=piece3DObjects.find(p=>p.userData.boardRow===enemy.r&&p.userData.boardCol===enemy.c);
-                if(enemyMesh){removeKingAura(enemyMesh);animatePieceDrop(enemyMesh);}
+                if(enemyMesh){removeKingAura(enemyMesh);removeChessKingAura(enemyMesh);animatePieceDrop(enemyMesh);}
             });
             jumpCount++;if(selectedTheme!=='knight')SoundEffects.playCapture();
         }else{jumpCount=0;SoundEffects.playMove();}
@@ -1551,7 +1843,7 @@ function updateKnightPieceAnims(){
 // ==========================================
 function animate(){
     requestAnimationFrame(animate);
-    updateParticles();updatePieceAnimations();updatePieceBlinks();updateKnightJumpAnimations();updateKingAuras();updateKnightPieceAnims();applyScreenShake();
+    updateParticles();updatePieceAnimations();updatePieceBlinks();updateKnightJumpAnimations();updateKingAuras();updateChessKingAuras();updateKnightPieceAnims();applyScreenShake();
     if(selectedTheme!=='knight'){
         const t=Date.now()*0.001;
         piece3DObjects.forEach((p,idx)=>{
